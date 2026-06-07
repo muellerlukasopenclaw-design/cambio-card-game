@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Cambio - Ein taktisches Kartenspiel">
+    <title>Cambio</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Start Screen -->
+        <div id="screen-start" class="screen active">
+            <div class="logo-container">
+                <div class="logo">🃏</div>
+                <h1>Cambio</h1>
+                <p class="tagline">Das taktische Kartenspiel</p>
+            </div>
+            
+            <div class="menu-grid">
+                <button class="menu-btn primary" data-action="singleplayer">
+                    <span class="icon">🤖</span>
+                    <span class="label">Gegen Bots</span>
+                </button>
+                <button class="menu-btn primary" data-action="hotseat">
+                    <span class="icon">👥</span>
+                    <span class="label">Lokal (Hotseat)</span>
+                </button>
+                <button class="menu-btn primary" data-action="multiplayer">
+                    <span class="icon">🌐</span>
+                    <span class="label">Online Multiplayer</span>
+                </button>
+                <button class="menu-btn secondary" data-action="rules">
+                    <span class="icon">📖</span>
+                    <span class="label">Spielregeln</span>
+                </button>
+                <button class="menu-btn secondary" data-action="settings">
+                    <span class="icon">⚙️</span>
+                    <span class="label">Einstellungen</span>
+                </button>
+            </div>
+            
+            <div id="pwa-install" class="pwa-banner hidden">
+                <p>📲 Als App installieren</p>
+                <button id="btn-install">Installieren</button>
+            </div>
+        </div>
+
+        <!-- Singleplayer Setup -->
+        <div id="screen-singleplayer" class="screen">
+            <h2>Einzelspieler</h2>
+            <div class="setup-form">
+                <label>
+                    Dein Name
+                    <input type="text" id="sp-name" value="Spieler" maxlength="20">
+                </label>
+                <label>
+                    Anzahl Bots
+                    <select id="sp-bot-count">
+                        <option value="1">1 Bot</option>
+                        <option value="2" selected>2 Bots</option>
+                        <option value="3">3 Bots</option>
+                        <option value="4">4 Bots</option>
+                    </select>
+                </label>
+                <label>
+                    Schwierigkeit
+                    <select id="sp-difficulty">
+                        <option value="easy">Einfach</option>
+                        <option value="medium" selected>Mittel</option>
+                        <option value="hard">Schwer</option>
+                    </select>
+                </label>
+                <div class="btn-group">
+                    <button class="btn secondary" data-action="back">Zurück</button>
+                    <button class="btn primary" data-action="start-singleplayer">Starten</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hotseat Setup -->
+        <div id="screen-hotseat" class="screen">
+            <h2>Lokales Spiel</h2>
+            <div class="setup-form">
+                <div id="hotseat-players">
+                    <label>Spieler 1 <input type="text" class="player-name" value="Spieler 1" maxlength="20"></label>
+                    <label>Spieler 2 <input type="text" class="player-name" value="Spieler 2" maxlength="20"></label>
+                </div>
+                <button class="btn small" data-action="add-player">+ Spieler hinzufügen</button>
+                <div class="btn-group">
+                    <button class="btn secondary" data-action="back">Zurück</button>
+                    <button class="btn primary" data-action="start-hotseat">Starten</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Multiplayer Menu -->
+        <div id="screen-multiplayer" class="screen">
+            <h2>Online Multiplayer</h2>
+            <div class="menu-grid">
+                <button class="menu-btn primary" data-action="create-lobby">
+                    <span class="icon">🏗️</span>
+                    <span class="label">Lobby erstellen</span>
+                </button>
+                <button class="menu-btn primary" data-action="join-lobby">
+                    <span class="icon">🔑</span>
+                    <span class="label">Lobby beitreten</span>
+                </button>
+            </div>
+            <button class="btn secondary" data-action="back">Zurück</button>
+        </div>
+
+        <!-- Create Lobby -->
+        <div id="screen-create-lobby" class="screen">
+            <h2>Lobby erstellen</h2>
+            <div class="setup-form">
+                <label>
+                    Dein Name
+                    <input type="text" id="lobby-host-name" value="Host" maxlength="20">
+                </label>
+                <label>
+                    Spielname
+                    <input type="text" id="lobby-name" value="Cambio-Runde" maxlength="30">
+                </label>
+                <label>
+                    Max. Spieler
+                    <select id="lobby-max-players">
+                        <option value="2">2</option>
+                        <option value="3" selected>3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                    </select>
+                </label>
+                <div class="btn-group">
+                    <button class="btn secondary" data-action="back">Zurück</button>
+                    <button class="btn primary" data-action="create-lobby-submit">Erstellen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Join Lobby -->
+        <div id="screen-join-lobby" class="screen">
+            <h2>Lobby beitreten</h2>
+            <div class="setup-form">
+                <label>
+                    Dein Name
+                    <input type="text" id="join-name" value="Spieler" maxlength="20">
+                </label>
+                <label>
+                    Lobby-Code
+                    <input type="text" id="join-code" placeholder="ABCD12" maxlength="6" style="text-transform:uppercase">
+                </label>
+                <div class="btn-group">
+                    <button class="btn secondary" data-action="back">Zurück</button>
+                    <button class="btn primary" data-action="join-lobby-submit">Beitreten</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lobby Waiting -->
+        <div id="screen-lobby" class="screen">
+            <h2 id="lobby-title">Lobby</h2>
+            <div class="lobby-info">
+                <div class="lobby-code-display">
+                    <span class="label">Code:</span>
+                    <span id="lobby-code" class="code">----</span>
+                    <button class="btn small" data-action="copy-code">📋</button>
+                </div>
+            </div>
+            <div id="lobby-players" class="player-list"></div>
+            <div class="lobby-actions">
+                <button class="btn primary" id="btn-start-game" data-action="start-game" disabled>Spiel starten</button>
+                <button class="btn secondary" data-action="leave-lobby">Lobby verlassen</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="screen-game" class="screen">
+            <div id="game-header">
+                <div id="game-info">
+                    <span id="round-info">Runde 1</span>
+                    <span id="score-info"></span>
+                </div>
+                <div id="turn-indicator">Warte auf Zug...</div>
+            </div>
+            
+            <div id="game-table">
+                <div id="other-players"></div>
+                <div id="table-center">
+                    <div id="deck" class="card-stack">
+                        <div class="card back"></div>
+                        <span class="count" id="deck-count">52</span>
+                    </div>
+                    <div id="discard" class="card-stack">
+                        <div class="card empty"></div>
+                    </div>
+                </div>
+                <div id="own-hand"></div>
+            </div>
+            
+            <div id="game-actions" class="hidden">
+                <button class="btn action" data-action="draw-deck">Stapel ziehen</button>
+                <button class="btn action" data-action="draw-discard">Ablage nehmen</button>
+                <button class="btn action" data-action="call-cabo">🎯 Cabo!</button>
+            </div>
+            
+            <div id="action-modal" class="modal hidden">
+                <div class="modal-content">
+                    <h3 id="modal-title">Aktion wählen</h3>
+                    <div id="modal-body"></div>
+                    <button class="btn secondary" data-action="cancel">Abbrechen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rules Screen -->
+        <div id="screen-rules" class="screen">
+            <h2>Spielregeln</h2>
+            <div id="rules-content" class="scrollable"></div>
+            <button class="btn secondary" data-action="back">Zurück</button>
+        </div>
+
+        <!-- Settings Screen -->
+        <div id="screen-settings" class="screen">
+            <h2>Einstellungen</h2>
+            <div class="settings-form">
+                <label>
+                    <input type="checkbox" id="setting-animations" checked>
+                    Animationen
+                </label>
+                <label>
+                    <input type="checkbox" id="setting-sounds">
+                    Sounds
+                </label>
+                <label>
+                    <input type="checkbox" id="setting-dark-mode" checked>
+                    Dark Mode
+                </label>
+                <label>
+                    Regelvariante
+                    <select id="setting-rules">
+                        <option value="classic">Klassisch (Gewinner = 0 Punkte)</option>
+                        <option value="simple">Einfach (alle zählen)</option>
+                    </select>
+                </label>
+                <label>
+                    Cabo-Strafe
+                    <select id="setting-cabo-penalty">
+                        <option value="0">Keine</option>
+                        <option value="5">+5 Punkte</option>
+                        <option value="10" selected>+10 Punkte</option>
+                    </select>
+                </label>
+                <label>
+                    Zielpunktzahl
+                    <select id="setting-target">
+                        <option value="50">50</option>
+                        <option value="100" selected>100</option>
+                        <option value="custom">Frei</option>
+                    </select>
+                </label>
+                <button class="btn secondary" data-action="back">Zurück</button>
+            </div>
+        </div>
+
+        <!-- Hotseat Shield -->
+        <div id="screen-shield" class="screen hidden">
+            <div class="shield-content">
+                <h2>🔒 Privater Bereich</h2>
+                <p id="shield-player">Spieler X</p>
+                <p>Tippe zum Fortfahren</p>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div id="toast-container"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

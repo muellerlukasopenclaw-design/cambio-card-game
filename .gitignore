@@ -1,0 +1,34 @@
+# Datenbank
+data/*.db
+data/*.db-journal
+data/*.db-wal
+
+# Umgebungsvariablen
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Dependencies (falls später hinzugefügt)
+vendor/
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Test artifacts
+.phpunit.result.cache
+coverage/
