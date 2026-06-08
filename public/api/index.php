@@ -72,7 +72,8 @@ try {
     
     switch ($path) {
         case '/health':
-            $response = ['success' => true, 'status' => 'ok', 'time' => time()];
+            $version = trim(file_get_contents(__DIR__ . '/../../VERSION') ?: '0.0.0');
+            $response = ['success' => true, 'status' => 'ok', 'time' => time(), 'version' => $version];
             break;
             
         case '/lobby/create':

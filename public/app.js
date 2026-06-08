@@ -480,7 +480,6 @@ function renderGame() {
 
     // Other players
     const others = gs.players.filter(p => p.id !== state.playerId);
-    const isMyTurn = gs.currentPlayerId === state.playerId;
     $('#other-players').innerHTML = others.map(p => `
         <div class="player-area ${p.id === gs.currentPlayerId ? 'active' : ''}" data-player-id="${p.id}">
             <span class="name">${escapeHtml(p.name)}</span>
@@ -922,10 +921,21 @@ $('#btn-install')?.addEventListener('click', async () => {
 });
 
 // ─── Init ───────────────────────────────────────────────────────────
+async function loadVersion() {
+    try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        if (data.version) {
+            $('#app-version').textContent = 'v' + data.version;
+        }
+    } catch (e) {}
+}
+
 function init() {
     loadSettings();
     initEventListeners();
     showScreen('start');
+    loadVersion();
 
     // Register service worker
     if ('serviceWorker' in navigator) {
