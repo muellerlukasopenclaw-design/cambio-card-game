@@ -5,6 +5,86 @@
 
 const API_BASE = '/api';
 
+// ─── Audio ───────────────────────────────────────────────────────────
+let audioCtx = null;
+
+function getAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+}
+
+function playSound(type) {
+    if (!state.settings.sounds) return;
+    try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        switch (type) {
+            case 'draw':
+                osc.frequency.setValueAtTime(440, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.1);
+                break;
+            case 'discard':
+                osc.frequency.setValueAtTime(600, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.15);
+                break;
+            case 'swap':
+                osc.frequency.setValueAtTime(523, ctx.currentTime);
+                osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.3);
+                break;
+            case 'cabo':
+                osc.frequency.setValueAtTime(440, ctx.currentTime);
+                osc.frequency.setValueAtTime(554, ctx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(659, ctx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.5);
+                break;
+            case 'win':
+                osc.frequency.setValueAtTime(523, ctx.currentTime);
+                osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+                osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(1047, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.6);
+                break;
+            case 'error':
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.2);
+                break;
+        }
+    } catch (e) {
+        console.warn('Sound error:', e);
+    }
+}
+
 // ─── State ──────────────────────────────────────────────────────────
 const state = {
     screen: 'start',
@@ -149,6 +229,39 @@ function applySettings() {
     $('#setting-cabo-penalty').value = state.settings.caboPenalty;
     $('#setting-target').value = state.settings.targetScore;
     document.body.classList.toggle('dark', state.settings.darkMode);
+}
+
+// ─── Settings Events ───────────────────────────────────────────────
+function initSettingsListeners() {
+    $('#setting-animations').addEventListener('change', (e) => {
+        state.settings.animations = e.target.checked;
+        saveSettings();
+    });
+    $('#setting-sounds').addEventListener('change', (e) => {
+        state.settings.sounds = e.target.checked;
+        saveSettings();
+        if (e.target.checked) {
+            // Initialize audio context on user interaction
+            getAudioContext();
+        }
+    });
+    $('#setting-dark-mode').addEventListener('change', (e) => {
+        state.settings.darkMode = e.target.checked;
+        document.body.classList.toggle('dark', state.settings.darkMode);
+        saveSettings();
+    });
+    $('#setting-rules').addEventListener('change', (e) => {
+        state.settings.rules = e.target.value;
+        saveSettings();
+    });
+    $('#setting-cabo-penalty').addEventListener('change', (e) => {
+        state.settings.caboPenalty = parseInt(e.target.value);
+        saveSettings();
+    });
+    $('#setting-target').addEventListener('change', (e) => {
+        state.settings.targetScore = parseInt(e.target.value);
+        saveSettings();
+    });
 }
 
 // ─── Navigation ─────────────────────────────────────────────────────
@@ -948,6 +1061,48 @@ function initEventListeners() {
             card.classList.add('selected');
             toast('Wähle jetzt eine gegnerische Karte zum Tauschen');
             return;
+        }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (state.screen !== 'game') return;
+        const gs = state.gameState;
+        if (!gs || gs.currentPlayerId !== state.playerId) return;
+        if (gs.phase !== 'playing' && gs.phase !== 'cabo_called') return;
+        if (gs.pendingAction) return;
+
+        switch (e.key) {
+            case 'd':
+            case 'D':
+                e.preventDefault();
+                actionDrawDeck();
+                break;
+            case 'a':
+            case 'A':
+                e.preventDefault();
+                actionDrawDiscard();
+                break;
+            case 'c':
+            case 'C':
+                e.preventDefault();
+                actionCallCabo();
+                break;
+            case 'Escape':
+                e.preventDefault();
+                closeModal();
+                break;
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+                if (gs.pendingAction === 'draw_deck' || gs.pendingAction === 'draw_discard') {
+                    e.preventDefault();
+                    const idx = parseInt(e.key) - 1;
+                    sendAction({ action: 'swap_with_hand', index: idx });
+                    closeModal();
+                }
+                break;
         }
     });
 
