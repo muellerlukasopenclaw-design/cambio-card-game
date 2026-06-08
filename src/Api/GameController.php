@@ -336,9 +336,9 @@ class GameController {
         
         // Load from DB
         $pdo = $this->db->getConnection();
-        $row = $pdo->prepare('SELECT * FROM games WHERE id = ?')
-            ->execute([$gameId])
-            ->fetch();
+        $stmt = $pdo->prepare('SELECT * FROM games WHERE id = ?');
+        $stmt->execute([$gameId]);
+        $row = $stmt->fetch();
         
         if (!$row) {
             return null;

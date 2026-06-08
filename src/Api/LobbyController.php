@@ -60,9 +60,9 @@ class LobbyController {
         
         $pdo = $this->db->getConnection();
         
-        $lobby = $pdo->prepare('SELECT * FROM lobbies WHERE code = ? AND expires_at > ?')
-            ->execute([$code, time()])
-            ->fetch();
+        $stmt = $pdo->prepare('SELECT * FROM lobbies WHERE code = ? AND expires_at > ?');
+        $stmt->execute([$code, time()]);
+        $lobby = $stmt->fetch();
         
         if (!$lobby) {
             return ['success' => false, 'error' => 'Lobby nicht gefunden oder abgelaufen'];
@@ -72,9 +72,9 @@ class LobbyController {
             return ['success' => false, 'error' => 'Spiel läuft bereits'];
         }
         
-        $playerCount = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ?')
-            ->execute([$lobby['id']])
-            ->fetchColumn();
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ?');
+        $stmt->execute([$lobby['id']]);
+        $playerCount = $stmt->fetchColumn();
         
         if ($playerCount >= $lobby['max_players']) {
             return ['success' => false, 'error' => 'Lobby ist voll'];
@@ -105,22 +105,24 @@ class LobbyController {
     public function getState(string $lobbyId, string $tokenHash): array {
         $pdo = $this->db->getConnection();
         
-        $lobby = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?')
-            ->execute([$lobbyId])
-            ->fetch();
+        $stmt = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?');
+        $stmt->execute([$lobbyId]);
+        $lobby = $stmt->fetch();
         
         if (!$lobby) {
             return ['success' => false, 'error' => 'Lobby nicht gefunden'];
         }
         
-        $players = $pdo->prepare('
+        $stmt = $pdo->prepare('
             SELECT id, name, is_bot, bot_difficulty, is_host, ready
             FROM players WHERE lobby_id = ?
-        ')->execute([$lobbyId])->fetchAll();
+        ');
+        $stmt->execute([$lobbyId]);
+        $players = $stmt->fetchAll();
         
-        $currentPlayer = $pdo->prepare('SELECT id, is_host FROM players WHERE lobby_id = ? AND token_hash = ?')
-            ->execute([$lobbyId, $tokenHash])
-            ->fetch();
+        $stmt = $pdo->prepare('SELECT id, is_host FROM players WHERE lobby_id = ? AND token_hash = ?');
+        $stmt->execute([$lobbyId, $tokenHash]);
+        $currentPlayer = $stmt->fetch();
         
         return [
             'success' => true,
@@ -155,9 +157,9 @@ class LobbyController {
         $pdo->prepare('DELETE FROM players WHERE id = ? AND lobby_id = ?')
             ->execute([$playerId, $lobbyId]);
         
-        $remaining = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ?')
-            ->execute([$lobbyId])
-            ->fetchColumn();
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ?');
+        $stmt->execute([$lobbyId]);
+        $remaining = $stmt->fetchColumn();
         
         if ($remaining == 0) {
             $pdo->prepare('DELETE FROM lobbies WHERE id = ?')
@@ -170,17 +172,17 @@ class LobbyController {
     public function addBot(string $lobbyId, string $difficulty = 'medium'): array {
         $pdo = $this->db->getConnection();
         
-        $lobby = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?')
-            ->execute([$lobbyId])
-            ->fetch();
+        $stmt = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?');
+        $stmt->execute([$lobbyId]);
+        $lobby = $stmt->fetch();
         
         if (!$lobby || $lobby['status'] !== 'waiting') {
             return ['success' => false, 'error' => 'Lobby nicht verfügbar'];
         }
         
-        $playerCount = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ?')
-            ->execute([$lobbyId])
-            ->fetchColumn();
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ?');
+        $stmt->execute([$lobbyId]);
+        $playerCount = $stmt->fetchColumn();
         
         if ($playerCount >= $lobby['max_players']) {
             return ['success' => false, 'error' => 'Lobby ist voll'];
@@ -212,9 +214,9 @@ class LobbyController {
     public function startGame(string $lobbyId, string $playerId): array {
         $pdo = $this->db->getConnection();
         
-        $lobby = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?')
-            ->execute([$lobbyId])
-            ->fetch();
+        $stmt = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?');
+        $stmt->execute([$lobbyId]);
+        $lobby = $stmt->fetch();
         
         if (!$lobby) {
             return ['success' => false, 'error' => 'Lobby nicht gefunden'];
@@ -224,10 +226,12 @@ class LobbyController {
             return ['success' => false, 'error' => 'Nur der Host kann das Spiel starten'];
         }
         
-        $players = $pdo->prepare('
+        $stmt = $pdo->prepare('
             SELECT id, name, is_bot, bot_difficulty
             FROM players WHERE lobby_id = ?
-        ')->execute([$lobbyId])->fetchAll();
+        ');
+        $stmt->execute([$lobbyId]);
+        $players = $stmt->fetchAll();
         
         if (count($players) < 2) {
             return ['success' => false, 'error' => 'Mindestens 2 Spieler benötigt'];
@@ -256,10 +260,9 @@ class LobbyController {
                 $code .= $chars[random_int(0, strlen($chars) - 1)];
             }
             
-            $exists = $this->db->getConnection()
-                ->prepare('SELECT 1 FROM lobbies WHERE code = ?')
-                ->execute([$code])
-                ->fetch();
+            $stmt = $this->db->getConnection()->prepare('SELECT 1 FROM lobbies WHERE code = ?');
+            $stmt->execute([$code]);
+            $exists = $stmt->fetch();
         } while ($exists);
         
         return $code;
