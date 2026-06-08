@@ -132,6 +132,7 @@ class LobbyController {
                 'name' => $lobby['name'],
                 'status' => $lobby['status'],
                 'maxPlayers' => $lobby['max_players'],
+                'gameId' => $lobby['game_id'] ?? null,
                 'players' => $players,
                 'isHost' => $currentPlayer ? (bool)$currentPlayer['is_host'] : false,
                 'playerId' => $currentPlayer['id'] ?? null
@@ -237,10 +238,11 @@ class LobbyController {
             return ['success' => false, 'error' => 'Mindestens 2 Spieler benötigt'];
         }
         
-        $pdo->prepare('UPDATE lobbies SET status = ?, updated_at = ? WHERE id = ?')
-            ->execute(['playing', time(), $lobbyId]);
+        $gameId = 'game_' . uniqid('', true);
+        $pdo->prepare('UPDATE lobbies SET status = ?, game_id = ?, updated_at = ? WHERE id = ?')
+            ->execute(['playing', $gameId, time(), $lobbyId]);
         
-        return ['success' => true, 'players' => $players];
+        return ['success' => true, 'gameId' => $gameId, 'players' => $players];
     }
 
     public function cleanupExpired(): int {

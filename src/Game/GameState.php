@@ -505,13 +505,12 @@ class GameState {
         $playersData = [];
         foreach ($this->players as $player) {
             $isSelf = $forPlayerId && $player->id === $forPlayerId;
-            $showAll = $isRoundEnd;
-            $playersData[] = $player->toArray($isSelf || $showAll);
+            $playersData[] = $player->toArray($isSelf, $isRoundEnd);
         }
 
         $topDiscard = $this->deck->topDiscard();
 
-        // Only show drawn card to the player who drew it
+        // Only show drawn card to the current player
         $showDrawnCard = $forPlayerId && $currentPlayer && $currentPlayer->id === $forPlayerId;
 
         return [
@@ -568,6 +567,7 @@ class GameState {
         $game->finalTurnsComplete = $data['finalTurnsComplete'] ?? false;
         $game->lastAction = $data['lastAction'] ?? null;
         $game->lastActionData = $data['lastActionData'] ?? null;
+        $game->pendingAction = $data['pendingAction'] ?? null;
         $game->roundScores = $data['roundScores'] ?? [];
         $game->createdAt = $data['createdAt'] ?? time();
         $game->updatedAt = $data['updatedAt'] ?? time();

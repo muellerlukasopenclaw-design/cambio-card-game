@@ -79,7 +79,7 @@ class Player {
         return array_values($this->hand);
     }
 
-    public function toArray(bool $includeSecrets = false): array {
+    public function toArray(bool $includeSecrets = false, bool $isRoundEnd = false): array {
         $data = [
             'id' => $this->id,
             'name' => $this->name,
@@ -93,9 +93,17 @@ class Player {
             'cardCount' => count($this->hand)
         ];
 
-        if ($includeSecrets) {
-            // For client: only show known cards, others as null
-            $data['hand'] = array_map(function($c) { return $c ? $c->toArray() : null; }, array_values($this->hand));
+        if ($isRoundEnd) {
+            // Round end: show all cards to everyone
+            $data['hand'] = array_map(fn($c) => $c->toArray(), array_values($this->hand));
+        } elseif ($includeSecrets) {
+            // For client: only show known cards, others as back
+            $data['hand'] = array_map(function($i) {
+                if (isset($this->knownCards[$i])) {
+                    return $this->knownCards[$i]->toArray();
+                }
+                return null;
+            }, array_keys($this->hand));
             $data['knownCards'] = array_map(
                 fn($idx, $card) => ['index' => $idx, 'card' => $card->toArray()],
                 array_keys($this->knownCards),

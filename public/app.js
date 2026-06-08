@@ -369,15 +369,8 @@ async function pollLobby() {
     // Auto-transition to game when lobby status changes to playing
     if (lobby.status === 'playing' && !state.gameId) {
         clearInterval(state.pollInterval);
-        // Get game state
-        const gameRes = await api('/game/state', 'GET', {
-            gameId: state.lobbyId,
-            playerId: state.playerId,
-            token: state.sessionToken
-        });
-        if (gameRes.success) {
-            state.gameId = gameRes.state.id;
-            state.gameState = gameRes.state;
+        if (lobby.gameId) {
+            state.gameId = lobby.gameId;
             state.gameToken = state.sessionToken;
             showScreen('game');
             renderGame();

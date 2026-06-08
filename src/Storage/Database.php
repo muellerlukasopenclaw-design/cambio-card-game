@@ -42,6 +42,7 @@ class Database {
                 host_id TEXT NOT NULL,
                 max_players INTEGER NOT NULL DEFAULT 5,
                 status TEXT NOT NULL DEFAULT "waiting",
+                game_id TEXT,
                 config TEXT,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL,
@@ -75,8 +76,7 @@ class Database {
                 current_player_index INTEGER NOT NULL DEFAULT 0,
                 config TEXT,
                 created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL,
-                FOREIGN KEY (lobby_id) REFERENCES lobbies(id) ON DELETE CASCADE
+                updated_at INTEGER NOT NULL
             )
         ');
         
