@@ -575,6 +575,25 @@ body {
     display: none;
 }
 
+/* Loading Indicator */
+body.loading::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover), var(--accent));
+    background-size: 200% 100%;
+    animation: loading 1s infinite;
+    z-index: 9999;
+}
+
+@keyframes loading {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
 /* App Footer */
 .app-footer {
     position: fixed;

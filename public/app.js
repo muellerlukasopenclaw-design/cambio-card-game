@@ -73,6 +73,20 @@ function toast(msg, type = 'info') {
     }, 4000);
 }
 
+let apiCallCount = 0;
+
+function showLoading() {
+    apiCallCount++;
+    document.body.classList.add('loading');
+}
+
+function hideLoading() {
+    apiCallCount = Math.max(0, apiCallCount - 1);
+    if (apiCallCount === 0) {
+        document.body.classList.remove('loading');
+    }
+}
+
 async function api(path, method = 'GET', body = null) {
     let url = `${API_BASE}${path}`;
     const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -83,6 +97,7 @@ async function api(path, method = 'GET', body = null) {
         opts.body = JSON.stringify(body);
     }
     
+    showLoading();
     try {
         const res = await fetch(url, opts);
         const text = await res.text();
@@ -94,6 +109,8 @@ async function api(path, method = 'GET', body = null) {
     } catch (e) {
         console.error('API Error:', e);
         return { success: false, error: 'Netzwerkfehler — bitte Verbindung prüfen' };
+    } finally {
+        hideLoading();
     }
 }
 
