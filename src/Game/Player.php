@@ -94,7 +94,8 @@ class Player {
         ];
 
         if ($includeSecrets) {
-            $data['hand'] = array_map(fn($c) => $c->toArray(), $this->getVisibleHand());
+            // For client: only show known cards, others as null
+            $data['hand'] = array_map(function($c) { return $c ? $c->toArray() : null; }, array_values($this->hand));
             $data['knownCards'] = array_map(
                 fn($idx, $card) => ['index' => $idx, 'card' => $card->toArray()],
                 array_keys($this->knownCards),
@@ -104,6 +105,51 @@ class Player {
         }
 
         return $data;
+    }
+
+    public function toPersistedArray(): array {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'isBot' => $this->isBot,
+            'botDifficulty' => $this->botDifficulty,
+            'totalScore' => $this->totalScore,
+            'ready' => $this->ready,
+            'isHost' => $this->isHost,
+            'calledCabo' => $this->calledCabo,
+            'hasTakenFinalTurn' => $this->hasTakenFinalTurn,
+            'hand' => array_map(fn($c) => $c->toArray(), array_values($this->hand)),
+            'knownCards' => array_map(
+                fn($idx, $card) => ['index' => $idx, 'card' => $card->toArray()],
+                array_keys($this->knownCards),
+                $this->knownCards
+            ),
+            'spiedCards' => $this->spiedCards,
+            'sessionToken' => $this->sessionToken,
+        ];
+    }
+
+    public static function fromPersistedArray(array $data): self {
+        $player = new self($data['name'] ?? 'Spieler', $data['isBot'] ?? false, $data['botDifficulty'] ?? null);
+        $player->id = $data['id'];
+        $player->totalScore = $data['totalScore'] ?? 0;
+        $player->ready = $data['ready'] ?? false;
+        $player->isHost = $data['isHost'] ?? false;
+        $player->calledCabo = $data['calledCabo'] ?? false;
+        $player->hasTakenFinalTurn = $data['hasTakenFinalTurn'] ?? false;
+        $player->sessionToken = $data['sessionToken'] ?? null;
+
+        foreach ($data['hand'] ?? [] as $index => $cardData) {
+            $player->hand[$index] = Card::fromArray($cardData);
+        }
+
+        foreach ($data['knownCards'] ?? [] as $kc) {
+            $player->knownCards[$kc['index']] = Card::fromArray($kc['card']);
+        }
+
+        $player->spiedCards = $data['spiedCards'] ?? [];
+
+        return $player;
     }
 
     public function resetForNewRound(): void {

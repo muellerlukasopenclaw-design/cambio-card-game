@@ -27,12 +27,23 @@ const state = {
         currentIndex: 0
     },
     pollInterval: null,
-    eventSource: null
+    eventSource: null,
+    pendingSwapOwnIndex: null
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[c]));
+}
 
 function showScreen(id) {
     $$('.screen').forEach(s => s.classList.remove('active'));
@@ -51,21 +62,40 @@ function toast(msg, type = 'info') {
 }
 
 async function api(path, method = 'GET', body = null) {
+    let url = `${API_BASE}${path}`;
     const opts = { method, headers: { 'Content-Type': 'application/json' } };
-    if (body) opts.body = JSON.stringify(body);
-    const res = await fetch(`${API_BASE}${path}`, opts);
-    return res.json();
+    
+    if (method === 'GET' && body) {
+        url += '?' + new URLSearchParams(body).toString();
+    } else if (body) {
+        opts.body = JSON.stringify(body);
+    }
+    
+    try {
+        const res = await fetch(url, opts);
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : {};
+        if (!res.ok) {
+            return { success: false, error: data.error || `HTTP ${res.status}` };
+        }
+        return data;
+    } catch (e) {
+        return { success: false, error: 'Netzwerkfehler' };
+    }
 }
 
 function cardHtml(card, index = null, selectable = false) {
-    if (!card) return '<div class="card empty"></div>';
-    const cls = `card face ${card.isRed ? 'red' : 'black'}${selectable ? ' selectable' : ''}`;
     const idx = index !== null ? ` data-index="${index}"` : '';
+    if (!card) {
+        return `<div class="card back${selectable ? ' selectable' : ''}"${idx}></div>`;
+    }
+    const cls = `card face ${card.isRed ? 'red' : 'black'}${selectable ? ' selectable' : ''}`;
     return `<div class="${cls}"${idx}>${card.display}${card.suit}</div>`;
 }
 
-function backCard() {
-    return '<div class="card back"></div>';
+function backCard(index = null, selectable = false) {
+    const idx = index !== null ? ` data-index="${index}"` : '';
+    return `<div class="card back${selectable ? ' selectable' : ''}"${idx}></div>`;
 }
 
 // ─── Settings ───────────────────────────────────────────────────────
@@ -390,10 +420,11 @@ function renderGame() {
 
     // Other players
     const others = gs.players.filter(p => p.id !== state.playerId);
+    const isMyTurn = gs.currentPlayerId === state.playerId;
     $('#other-players').innerHTML = others.map(p => `
-        <div class="player-area ${p.id === gs.currentPlayerId ? 'active' : ''}">
-            <span class="name">${p.name}</span>
-            <div class="cards">${Array(p.cardCount).fill(0).map(() => backCard()).join('')}</div>
+        <div class="player-area ${p.id === gs.currentPlayerId ? 'active' : ''}" data-player-id="${p.id}">
+            <span class="name">${escapeHtml(p.name)}</span>
+            <div class="cards">${Array.from({length: p.cardCount}, (_, i) => backCard(i, isMyTurn && ['spy','swap'].includes(gs.pendingAction))).join('')}</div>
         </div>
     `).join('');
 
@@ -413,7 +444,7 @@ function renderGame() {
             return cardHtml(card, i, selectable);
         }).join('');
     } else {
-        ownHand.innerHTML = Array(4).fill(0).map(() => backCard()).join('');
+        ownHand.innerHTML = Array.from({length: 4}, (_, i) => backCard(i, isInitialPeek)).join('');
     }
 
     // Game actions
@@ -455,13 +486,13 @@ function showPendingAction(action, drawnCard) {
         `;
     } else if (action === 'peek') {
         title.textContent = '👁 Wähle eine Karte zum Anschauen';
-        body.innerHTML = '<p>Tippe auf eine deiner Karten</p>';
+        body.innerHTML = '<p>Tippe auf eine deiner Karten</p><button class="btn secondary" data-action="skip-action">Überspringen</button>';
     } else if (action === 'spy') {
         title.textContent = '🔍 Wähle eine gegnerische Karte';
-        body.innerHTML = '<p>Tippe auf eine Karte eines Gegners</p>';
+        body.innerHTML = '<p>Tippe auf eine Karte eines Gegners</p><button class="btn secondary" data-action="skip-action">Überspringen</button>';
     } else if (action === 'swap') {
         title.textContent = '🔄 Wähle deine Karte und eine gegnerische Karte';
-        body.innerHTML = '<p>Tippe zuerst auf deine Karte, dann auf eine gegnerische</p>';
+        body.innerHTML = '<p>Tippe zuerst auf deine Karte, dann auf eine gegnerische</p><button class="btn secondary" data-action="skip-action">Überspringen</button>';
     }
 }
 
@@ -635,6 +666,12 @@ function initEventListeners() {
             return;
         }
 
+        if (action === 'skip-action') {
+            sendAction({ action: 'skip_action' });
+            closeModal();
+            return;
+        }
+
         if (action === 'next-round') {
             startNewRound();
             closeModal();
@@ -673,19 +710,28 @@ function initEventListeners() {
             sendAction({ action: 'peek', index });
             return;
         }
+
+        // Swap action - select own card first
+        if (gs.pendingAction === 'swap' && isMyTurn) {
+            state.pendingSwapOwnIndex = index;
+            $$('#own-hand .card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            toast('Wähle jetzt eine gegnerische Karte zum Tauschen');
+            return;
+        }
     });
 
     // Other player card clicks (for spy/swap)
     $('#other-players').addEventListener('click', (e) => {
         const card = e.target.closest('.card');
-        if (!card || !card.dataset.index) return;
+        if (!card || card.dataset.index === undefined) return;
 
         const gs = state.gameState;
         if (!gs || gs.currentPlayerId !== state.playerId) return;
 
         const playerArea = card.closest('.player-area');
-        const playerIndex = Array.from($$('#other-players .player-area')).indexOf(playerArea);
-        const targetPlayer = gs.players.filter(p => p.id !== state.playerId)[playerIndex];
+        const targetId = playerArea.dataset.playerId;
+        const targetPlayer = gs.players.find(p => p.id === targetId);
         if (!targetPlayer) return;
 
         const index = parseInt(card.dataset.index);
@@ -696,8 +742,19 @@ function initEventListeners() {
         }
 
         if (gs.pendingAction === 'swap') {
-            // TODO: Two-step swap selection
-            toast('Swap: Zuerst deine Karte wählen');
+            if (state.pendingSwapOwnIndex === null) {
+                toast('Swap: Wähle zuerst eine deiner Karten');
+                return;
+            }
+            sendAction({
+                action: 'swap',
+                ownIndex: state.pendingSwapOwnIndex,
+                targetId: targetPlayer.id,
+                targetIndex: index
+            });
+            state.pendingSwapOwnIndex = null;
+            $$('#own-hand .card').forEach(c => c.classList.remove('selected'));
+            return;
         }
     });
 

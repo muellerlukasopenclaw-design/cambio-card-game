@@ -38,14 +38,14 @@ class GameController {
         // Store in DB
         $pdo = $this->db->getConnection();
         $now = time();
-        
+
         $pdo->prepare('
             INSERT INTO games (id, lobby_id, state, phase, round, current_player_index, config, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ')->execute([
             $game->id,
             $lobbyId,
-            json_encode($game->toArray()),
+            json_encode($game->toPersistedArray()),
             $game->phase,
             $game->round,
             $game->currentPlayerIndex,
@@ -129,7 +129,11 @@ class GameController {
                     $action['targetIndex'] ?? 0
                 );
                 break;
-                
+
+            case GameState::ACTION_SKIP:
+                $result = $game->skipAction($playerId);
+                break;
+
             default:
                 return ['success' => false, 'error' => 'Unbekannte Aktion'];
         }
@@ -333,57 +337,34 @@ class GameController {
         if (isset($this->games[$gameId])) {
             return $this->games[$gameId];
         }
-        
+
         // Load from DB
         $pdo = $this->db->getConnection();
         $stmt = $pdo->prepare('SELECT * FROM games WHERE id = ?');
         $stmt->execute([$gameId]);
         $row = $stmt->fetch();
-        
+
         if (!$row) {
             return null;
         }
-        
-        // Reconstruct game state
+
+        // Reconstruct game state from persisted data
         $state = json_decode($row['state'], true);
-        $config = json_decode($row['config'] ?? '{}', true);
-        
-        $game = new GameState($config);
-        $game->id = $gameId;
-        $game->phase = $state['phase'] ?? GameState::PHASE_SETUP;
-        $game->round = $state['round'] ?? 1;
-        $game->currentPlayerIndex = $state['currentPlayerIndex'] ?? 0;
-        $game->caboCallerId = $state['caboCallerId'] ?? null;
-        $game->finalTurnsComplete = $state['finalTurnsComplete'] ?? false;
-        
-        // Restore players
-        foreach ($state['players'] ?? [] as $pData) {
-            $player = new Player(
-                $pData['name'] ?? 'Spieler',
-                $pData['isBot'] ?? false,
-                $pData['botDifficulty'] ?? null
-            );
-            $player->id = $pData['id'];
-            $player->totalScore = $pData['totalScore'] ?? 0;
-            $player->isHost = $pData['isHost'] ?? false;
-            $player->calledCabo = $pData['calledCabo'] ?? false;
-            $player->hasTakenFinalTurn = $pData['hasTakenFinalTurn'] ?? false;
-            $game->addPlayer($player);
-        }
-        
+        $game = GameState::fromPersistedArray($state);
+
         $this->games[$gameId] = $game;
         return $game;
     }
 
     private function saveGame(GameState $game): void {
         $this->games[$game->id] = $game;
-        
+
         $pdo = $this->db->getConnection();
         $pdo->prepare('
             UPDATE games SET state = ?, phase = ?, round = ?, current_player_index = ?, updated_at = ?
             WHERE id = ?
         ')->execute([
-            json_encode($game->toArray()),
+            json_encode($game->toPersistedArray()),
             $game->phase,
             $game->round,
             $game->currentPlayerIndex,

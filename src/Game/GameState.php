@@ -20,6 +20,7 @@ class GameState {
     public const ACTION_DISCARD = 'discard';
     public const ACTION_SWAP_WITH_HAND = 'swap_with_hand';
     public const ACTION_DISCARD_MULTIPLE = 'discard_multiple';
+    public const ACTION_SKIP = 'skip_action';
 
     public string $id;
     public string $phase = self::PHASE_SETUP;
@@ -90,8 +91,16 @@ class GameState {
     }
 
     public function nextPlayer(): void {
+        // Mark current player as having taken their final turn if in Cabo phase
+        if ($this->phase === self::PHASE_CABO_CALLED) {
+            $currentPlayer = $this->getCurrentPlayer();
+            if ($currentPlayer) {
+                $currentPlayer->hasTakenFinalTurn = true;
+            }
+        }
+
         $this->currentPlayerIndex = ($this->currentPlayerIndex + 1) % count($this->players);
-        
+
         // Check if all final turns are complete after Cabo
         if ($this->phase === self::PHASE_CABO_CALLED) {
             $currentPlayer = $this->getCurrentPlayer();
@@ -100,7 +109,6 @@ class GameState {
                 $this->endRound();
                 return;
             }
-            $currentPlayer?->hasTakenFinalTurn = true;
         }
     }
 
@@ -166,9 +174,26 @@ class GameState {
         return true;
     }
 
-    public function drawFromDeck(string $playerId): bool {
+    private function isTurnPhase(): bool {
+        return in_array($this->phase, [self::PHASE_PLAYING, self::PHASE_CABO_CALLED], true);
+    }
+
+    private function canPlayerAct(string $playerId): bool {
         $player = $this->getCurrentPlayer();
-        if (!$player || $player->id !== $playerId || $this->phase !== self::PHASE_PLAYING) {
+        if (!$player || $player->id !== $playerId) {
+            return false;
+        }
+        if ($this->drawnCard !== null || $this->pendingAction !== null) {
+            return false;
+        }
+        if ($this->phase === self::PHASE_CABO_CALLED && $player->hasTakenFinalTurn) {
+            return false;
+        }
+        return true;
+    }
+
+    public function drawFromDeck(string $playerId): bool {
+        if (!$this->canPlayerAct($playerId) || !$this->isTurnPhase()) {
             return false;
         }
 
@@ -182,8 +207,7 @@ class GameState {
     }
 
     public function takeFromDiscard(string $playerId): bool {
-        $player = $this->getCurrentPlayer();
-        if (!$player || $player->id !== $playerId || $this->phase !== self::PHASE_PLAYING) {
+        if (!$this->canPlayerAct($playerId) || !$this->isTurnPhase()) {
             return false;
         }
 
@@ -228,18 +252,23 @@ class GameState {
             return false;
         }
 
+        // Cannot discard when drawn from discard pile (must swap)
+        if ($this->pendingAction === self::ACTION_DRAW_DISCARD) {
+            return false;
+        }
+
         $this->deck->discard($this->drawnCard);
-        
+
         // Check if action card and can be played
         $actionType = $this->drawnCard->getActionType();
-        
+
         $this->drawnCard = null;
-        
+
         if ($actionType && $this->pendingAction === self::ACTION_DRAW_DECK) {
             $this->pendingAction = $actionType;
             return true;
         }
-        
+
         $this->pendingAction = null;
         $this->lastAction = self::ACTION_DISCARD;
         $this->nextPlayer();
@@ -320,14 +349,14 @@ class GameState {
 
         $ownCard = $player->hand[$ownIndex];
         $targetCard = $target->hand[$targetIndex];
-        
+
         $player->hand[$ownIndex] = $targetCard;
         $target->hand[$targetIndex] = $ownCard;
-        
+
         // Forget known positions
         $player->forgetCard($ownIndex);
         $target->forgetCard($targetIndex);
-        
+
         $this->pendingAction = null;
         $this->lastAction = self::ACTION_SWAP;
         $this->lastActionData = [
@@ -336,6 +365,22 @@ class GameState {
             'targetId' => $targetId,
             'targetIndex' => $targetIndex
         ];
+        $this->nextPlayer();
+        return true;
+    }
+
+    public function skipAction(string $playerId): bool {
+        $player = $this->getCurrentPlayer();
+        if (!$player || $player->id !== $playerId) {
+            return false;
+        }
+
+        if (!in_array($this->pendingAction, [self::ACTION_PEEK, self::ACTION_SPY, self::ACTION_SWAP], true)) {
+            return false;
+        }
+
+        $this->pendingAction = null;
+        $this->lastAction = self::ACTION_SKIP;
         $this->nextPlayer();
         return true;
     }
@@ -455,15 +500,20 @@ class GameState {
 
     public function toArray(string $forPlayerId = null): array {
         $currentPlayer = $this->getCurrentPlayer();
-        
+        $isRoundEnd = $this->phase === self::PHASE_ROUND_END || $this->phase === self::PHASE_GAME_OVER;
+
         $playersData = [];
         foreach ($this->players as $player) {
             $isSelf = $forPlayerId && $player->id === $forPlayerId;
-            $playersData[] = $player->toArray($isSelf);
+            $showAll = $isRoundEnd;
+            $playersData[] = $player->toArray($isSelf || $showAll);
         }
-        
+
         $topDiscard = $this->deck->topDiscard();
-        
+
+        // Only show drawn card to the player who drew it
+        $showDrawnCard = $forPlayerId && $currentPlayer && $currentPlayer->id === $forPlayerId;
+
         return [
             'id' => $this->id,
             'phase' => $this->phase,
@@ -476,7 +526,7 @@ class GameState {
             'deckRemaining' => $this->deck->remaining(),
             'discardCount' => $this->deck->discardCount(),
             'topDiscard' => $topDiscard?->toArray(),
-            'drawnCard' => $this->drawnCard?->toArray(),
+            'drawnCard' => $showDrawnCard ? $this->drawnCard?->toArray() : null,
             'pendingAction' => $this->pendingAction,
             'lastAction' => $this->lastAction,
             'config' => $this->config,
@@ -484,5 +534,56 @@ class GameState {
             'gameOver' => $this->phase === self::PHASE_GAME_OVER,
             'winner' => $this->getWinner()?->toArray(false)
         ];
+    }
+
+    public function toPersistedArray(): array {
+        return [
+            'id' => $this->id,
+            'phase' => $this->phase,
+            'round' => $this->round,
+            'currentPlayerIndex' => $this->currentPlayerIndex,
+            'caboCallerId' => $this->caboCallerId,
+            'finalTurnsComplete' => $this->finalTurnsComplete,
+            'players' => array_map(fn($p) => $p->toPersistedArray(), $this->players),
+            'deck' => $this->deck->toArray(),
+            'drawnCard' => $this->drawnCard?->toArray(),
+            'pendingAction' => $this->pendingAction,
+            'lastAction' => $this->lastAction,
+            'lastActionData' => $this->lastActionData,
+            'config' => $this->config,
+            'roundScores' => $this->roundScores,
+            'createdAt' => $this->createdAt,
+            'updatedAt' => $this->updatedAt,
+        ];
+    }
+
+    public static function fromPersistedArray(array $data): self {
+        $config = $data['config'] ?? [];
+        $game = new self($config);
+        $game->id = $data['id'];
+        $game->phase = $data['phase'] ?? self::PHASE_SETUP;
+        $game->round = $data['round'] ?? 1;
+        $game->currentPlayerIndex = $data['currentPlayerIndex'] ?? 0;
+        $game->caboCallerId = $data['caboCallerId'] ?? null;
+        $game->finalTurnsComplete = $data['finalTurnsComplete'] ?? false;
+        $game->lastAction = $data['lastAction'] ?? null;
+        $game->lastActionData = $data['lastActionData'] ?? null;
+        $game->roundScores = $data['roundScores'] ?? [];
+        $game->createdAt = $data['createdAt'] ?? time();
+        $game->updatedAt = $data['updatedAt'] ?? time();
+
+        if (!empty($data['deck'])) {
+            $game->deck = Deck::fromArray($data['deck']);
+        }
+
+        if (!empty($data['drawnCard'])) {
+            $game->drawnCard = Card::fromArray($data['drawnCard']);
+        }
+
+        foreach ($data['players'] ?? [] as $pData) {
+            $game->addPlayer(Player::fromPersistedArray($pData));
+        }
+
+        return $game;
     }
 }

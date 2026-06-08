@@ -74,4 +74,8 @@ class Card {
     public function sameRank(Card $other): bool {
         return $this->rank === $other->rank;
     }
+
+    public static function fromArray(array $data): self {
+        return new self($data['suit'], $data['rank']);
+    }
 }

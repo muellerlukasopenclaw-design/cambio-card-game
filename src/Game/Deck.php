@@ -80,4 +80,18 @@ class Deck {
     public function getDiscard(): array {
         return $this->discard;
     }
+
+    public function toArray(): array {
+        return [
+            'cards' => array_map(fn($c) => $c->toArray(), $this->cards),
+            'discard' => array_map(fn($c) => $c->toArray(), $this->discard),
+        ];
+    }
+
+    public static function fromArray(array $data): self {
+        $deck = new self();
+        $deck->cards = array_map(fn($c) => new Card($c['suit'], $c['rank']), $data['cards'] ?? []);
+        $deck->discard = array_map(fn($c) => new Card($c['suit'], $c['rank']), $data['discard'] ?? []);
+        return $deck;
+    }
 }
