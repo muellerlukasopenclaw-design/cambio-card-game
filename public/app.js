@@ -92,7 +92,8 @@ async function api(path, method = 'GET', body = null) {
         }
         return data;
     } catch (e) {
-        return { success: false, error: 'Netzwerkfehler' };
+        console.error('API Error:', e);
+        return { success: false, error: 'Netzwerkfehler — bitte Verbindung prüfen' };
     }
 }
 
@@ -311,6 +312,11 @@ async function createLobby() {
     const lobbyName = $('#lobby-name').value.trim() || 'Cambio-Runde';
     const maxPlayers = parseInt($('#lobby-max-players').value);
 
+    if (maxPlayers < 2 || maxPlayers > 5) {
+        toast('Spieleranzahl muss 2-5 sein', 'error');
+        return;
+    }
+
     const res = await api('/lobby/create', 'POST', {
         hostName: name,
         name: lobbyName,
@@ -332,7 +338,7 @@ async function createLobby() {
         }));
         showLobby();
     } else {
-        toast(res.error || 'Fehler', 'error');
+        toast(res.error || 'Lobby konnte nicht erstellt werden', 'error');
     }
 }
 
@@ -471,6 +477,10 @@ async function pollLobby() {
 
 function copyLobbyCode() {
     const code = $('#lobby-code').textContent;
+    if (code === '----') {
+        toast('Kein Code zum Kopieren', 'warning');
+        return;
+    }
     navigator.clipboard.writeText(code).then(() => toast('Code kopiert!'));
 }
 
