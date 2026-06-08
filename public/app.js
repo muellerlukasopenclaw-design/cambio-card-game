@@ -7,12 +7,115 @@ const API_BASE = '/api';
 
 // ─── Audio ───────────────────────────────────────────────────────────
 let audioCtx = null;
+let wsConnection = null;
 
 function getAudioContext() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     return audioCtx;
+}
+
+// ─── WebSocket ──────────────────────────────────────────────────────
+function initWebSocket() {
+    if (!window.WebSocket) return;
+    
+    const wsUrl = window.location.protocol === 'https:' 
+        ? `wss://${window.location.host}/ws`
+        : `ws://${window.location.host}/ws`;
+    
+    try {
+        wsConnection = new WebSocket(wsUrl);
+        
+        wsConnection.onopen = () => {
+            console.log('WebSocket connected');
+            // Join current game/lobby if any
+            if (state.gameId) {
+                wsConnection.send(JSON.stringify({
+                    type: 'join_game',
+                    gameId: state.gameId,
+                    playerId: state.playerId
+                }));
+            } else if (state.lobbyId) {
+                wsConnection.send(JSON.stringify({
+                    type: 'join_lobby',
+                    lobbyId: state.lobbyId,
+                    playerId: state.playerId
+                }));
+            }
+        };
+        
+        wsConnection.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            } catch (e) {
+                console.error('WebSocket message error:', e);
+            }
+        };
+        
+        wsConnection.onclose = () => {
+            console.log('WebSocket disconnected');
+            wsConnection = null;
+            // Fallback to polling
+            if (state.gameId) startPolling();
+            if (state.lobbyId) startLobbyPolling();
+        };
+        
+        wsConnection.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+    } catch (e) {
+        console.warn('WebSocket init failed:', e);
+    }
+}
+
+function handleWebSocketMessage(data) {
+    switch (data.type) {
+        case 'game_state':
+            if (data.gameId === state.gameId) {
+                state.gameState = data.state;
+                renderGame();
+            }
+            break;
+            
+        case 'lobby_state':
+            if (data.lobbyId === state.lobbyId) {
+                renderLobbyState(data.state);
+            }
+            break;
+            
+        case 'chat':
+            if (window.extras?.receiveChatMessage) {
+                extras.receiveChatMessage(data);
+            }
+            break;
+            
+        case 'reaction':
+            if (window.extras?.showFloatingEmoji) {
+                extras.showFloatingEmoji(data.to, data.emoji);
+            }
+            break;
+            
+        case 'error':
+            toast(data.message || 'Verbindungsfehler', 'error');
+            break;
+    }
+}
+
+function sendWebSocketMessage(data) {
+    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+        wsConnection.send(JSON.stringify(data));
+        return true;
+    }
+    return false;
+}
+
+function closeWebSocket() {
+    if (wsConnection) {
+        wsConnection.close();
+        wsConnection = null;
+    }
 }
 
 function playSound(type) {

@@ -26,6 +26,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// WebSocket upgrade endpoint
+if ($_SERVER['REQUEST_URI'] === '/ws' || $_SERVER['REQUEST_URI'] === '/api/ws') {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'error' => 'WebSocket not available on this server. Use polling instead.',
+        'fallback' => true
+    ]);
+    exit;
+}
+
 // Error handling
 set_error_handler(function ($severity, $message, $file, $line) {
     error_log("PHP Error: $message in $file:$line");
