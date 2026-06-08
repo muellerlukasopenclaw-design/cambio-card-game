@@ -436,6 +436,15 @@ async function pollLobby() {
         if (lobby.gameId) {
             state.gameId = lobby.gameId;
             state.gameToken = state.sessionToken;
+            // Fetch initial game state before showing game screen
+            const gameRes = await api('/game/state', 'GET', {
+                gameId: state.gameId,
+                playerId: state.playerId,
+                token: state.gameToken
+            });
+            if (gameRes.success) {
+                state.gameState = gameRes.state;
+            }
             showScreen('game');
             renderGame();
             startPolling();
@@ -677,7 +686,6 @@ async function actionDrawDiscard() {
 }
 
 async function actionCallCabo() {
-    if (!lockButton('call_cabo')) return;
     await sendAction({ action: 'call_cabo' });
 }
 

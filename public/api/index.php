@@ -259,39 +259,11 @@ try {
             break;
             
         case '/game/stream':
-            // Server-Sent Events endpoint
-            header('Content-Type: text/event-stream');
-            header('Cache-Control: no-cache');
-            header('Connection: keep-alive');
-            
-            $gameId = $_GET['gameId'] ?? '';
-            $playerId = $_GET['playerId'] ?? '';
-            
-            if (!$gameId) {
-                echo "event: error\ndata: " . json_encode(['error' => 'Game ID erforderlich']) . "\n\n";
-                exit;
-            }
-            
-            $lastState = null;
-            $startTime = time();
-            $maxTime = 30; // 30 seconds per connection
-            
-            while (time() - $startTime < $maxTime) {
-                $state = $gameController->getState($gameId, $playerId);
-                $stateJson = json_encode($state);
-                
-                if ($stateJson !== $lastState) {
-                    echo "data: " . $stateJson . "\n\n";
-                    $lastState = $stateJson;
-                    ob_flush();
-                    flush();
-                }
-                
-                sleep(1);
-            }
-            
-            echo "event: close\ndata: {}\n\n";
-            exit;
+            // Server-Sent Events endpoint — disabled due to security concerns
+            // Token validation required but not implemented for SSE
+            http_response_code(501);
+            $response = ['success' => false, 'error' => 'SSE endpoint not implemented'];
+            break;
             
         default:
             http_response_code(404);

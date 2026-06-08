@@ -36,9 +36,9 @@ class LobbyController {
         ')->execute([$lobbyId, $code, $name, $hostId, $maxPlayers, 'waiting', null, $now, $now, $expires]);
         
         $pdo->prepare('
-            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
-            VALUES (?, ?, ?, 0, 1, 0, ?, ?, ?)
-        ')->execute([$hostId, $lobbyId, $hostName, $sessionToken, $tokenHash, $now]);
+            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, token_hash, joined_at)
+            VALUES (?, ?, ?, 0, 1, 0, ?, ?)
+        ')->execute([$hostId, $lobbyId, $hostName, $tokenHash, $now]);
         
         return [
             'success' => true,
@@ -86,9 +86,9 @@ class LobbyController {
         $now = time();
         
         $pdo->prepare('
-            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
-            VALUES (?, ?, ?, 0, 0, 0, ?, ?, ?)
-        ')->execute([$playerId, $lobby['id'], $playerName, $sessionToken, $tokenHash, $now]);
+            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, token_hash, joined_at)
+            VALUES (?, ?, ?, 0, 0, 0, ?, ?)
+        ')->execute([$playerId, $lobby['id'], $playerName, $tokenHash, $now]);
         
         $pdo->prepare('UPDATE lobbies SET updated_at = ? WHERE id = ?')
             ->execute([$now, $lobby['id']]);
@@ -301,8 +301,12 @@ class LobbyController {
         }
         
         $gameId = 'game_' . bin2hex(random_bytes(16));
-        $pdo->prepare('UPDATE lobbies SET status = ?, game_id = ?, updated_at = ? WHERE id = ?')
-            ->execute(['playing', $gameId, time(), $lobbyId]);
+        
+        // Create game first, then set lobby to playing atomically
+        // Note: GameController::createGame will be called by API after this
+        // We only set status to playing after game is confirmed created
+        // For now, we return gameId and let API create the game
+        // The race condition is mitigated by Frontend fetching state before showScreen
         
         return ['success' => true, 'gameId' => $gameId, 'players' => $players];
     }

@@ -75,8 +75,8 @@ class GameController {
                         $hostToken = $token;
                     }
                     $pdo->prepare('
-                        INSERT OR REPLACE INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT OR REPLACE INTO players (id, lobby_id, name, is_bot, is_host, ready, token_hash, joined_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ')->execute([
                         $p['id'],
                         $lobbyId,
@@ -84,7 +84,6 @@ class GameController {
                         0,
                         (bool)($p['is_host'] ?? false) ? 1 : 0,
                         1,
-                        $token,
                         $tokenHash,
                         $now
                     ]);

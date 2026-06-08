@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cambio-v0.1.10';
+const CACHE_NAME = 'cambio-v0.1.12';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -37,37 +37,34 @@ self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // API calls: network only
-    if (url.pathname.startsWith('/api/')) {
-        event.respondWith(fetch(request).catch(() => {
-            return new Response(JSON.stringify({ error: 'offline' }), {
-                status: 503,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }));
+    // Network-first for HTML (always fresh)
+    if (request.mode === 'navigate' || request.destination === 'document') {
+        event.respondWith(
+            fetch(request)
+                .then((response) => {
+                    const cacheCopy = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy));
+                    return response;
+                })
+                .catch(() => caches.match(request))
+        );
         return;
     }
 
-    // Static assets: cache first
+    // API requests: always network
+    if (url.pathname.startsWith('/api/')) {
+        event.respondWith(fetch(request));
+        return;
+    }
+
+    // Static assets: cache-first
     event.respondWith(
         caches.match(request).then((cached) => {
-            if (cached) {
-                return cached;
-            }
+            if (cached) return cached;
             return fetch(request).then((response) => {
-                if (response.ok && request.method === 'GET') {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(request, clone);
-                    });
-                }
+                const cacheCopy = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy));
                 return response;
-            }).catch(() => {
-                // Fallback for HTML
-                if (request.mode === 'navigate') {
-                    return caches.match('/index.html');
-                }
-                return new Response('Offline', { status: 503 });
             });
         })
     );
