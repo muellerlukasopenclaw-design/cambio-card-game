@@ -165,6 +165,7 @@ class LobbyController {
                 'createdAt' => (int)$lobby['created_at'],
                 'updatedAt' => (int)$lobby['updated_at'],
                 'expiresAt' => (int)$lobby['expires_at'],
+                'config' => json_decode($lobby['config'] ?? 'null', true),
                 'players' => array_values($humanPlayers),
                 'bots' => array_values($botPlayers),
                 'isHost' => $currentPlayer ? (bool)$currentPlayer['is_host'] : false,

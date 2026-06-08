@@ -67,7 +67,10 @@ function toast(msg, type = 'info') {
     el.className = `toast ${type}`;
     el.textContent = msg;
     container.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
+    setTimeout(() => {
+        el.classList.add('removing');
+        setTimeout(() => el.remove(), 300);
+    }, 4000);
 }
 
 async function api(path, method = 'GET', body = null) {
@@ -556,7 +559,7 @@ function renderGame() {
     const gs = state.gameState;
     if (!gs) return;
 
-    $('#round-info').textContent = `Runde ${gs.round}`;
+    $('#round-info').textContent = `Runde ${gs.round} — ${escapeHtml(ownPlayer?.name || '')}`;
 
     const ownPlayer = gs.players.find(p => p.id === state.playerId);
     const isMyTurn = gs.currentPlayerId === state.playerId;
