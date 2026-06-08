@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  cambio:
+    image: ghcr.io/muellerlukasopenclaw-design/cambio-card-game:${VERSION:-latest}
+    container_name: cambio-card-game
+    restart: unless-stopped
+    ports:
+      - "6255:80"
+    volumes:
+      - cambio-data:/var/www/html/data
+    environment:
+      - PHP_MEMORY_LIMIT=256M
+      - PHP_MAX_EXECUTION_TIME=30
+      - WEBSOCKET_ENABLED=false
+
+  websocket:
+    image: ghcr.io/muellerlukasopenclaw-design/cambio-card-game:${VERSION:-latest}
+    container_name: cambio-websocket
+    restart: unless-stopped
+    ports:
+      - "6256:8080"
+    volumes:
+      - cambio-data:/var/www/html/data
+    environment:
+      - PHP_MEMORY_LIMIT=128M
+      - WEBSOCKET_ENABLED=true
+    command: php /var/www/html/bin/websocket-server.php 8080
+    depends_on:
+      - cambio
+
+volumes:
+  cambio-data:
