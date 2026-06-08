@@ -1,9 +1,5 @@
 FROM php:8.2-apache
 
-# Build cache invalidator - change this to force fresh build
-ARG BUILD_DATE=2026-06-08-03
-RUN echo "Build date: $BUILD_DATE" > /build-date.txt
-
 # Enable mod_rewrite
 RUN a2enmod rewrite
 
@@ -28,10 +24,8 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 # Enable .htaccess
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
-# Copy app - cache invalidated by BUILD_DATE
-RUN echo "Build date: $BUILD_DATE" > /tmp/build-date.txt
+# Copy app
 COPY . /var/www/html/
-RUN echo "Build date: $BUILD_DATE" >> /var/www/html/build-info.txt
 
 # Install PHP dependencies
 RUN cd /var/www/html && composer install --no-dev --optimize-autoloader
