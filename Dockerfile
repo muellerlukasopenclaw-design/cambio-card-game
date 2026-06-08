@@ -1,7 +1,7 @@
 FROM php:8.2-apache
 
 # Build cache invalidator - change this to force fresh build
-ARG BUILD_DATE=2026-06-08-01
+ARG BUILD_DATE=2026-06-08-02
 
 # Enable mod_rewrite
 RUN a2enmod rewrite

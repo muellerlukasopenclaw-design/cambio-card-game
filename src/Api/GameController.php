@@ -92,12 +92,21 @@ class GameController {
             }
         }
         
+        // Find host player ID for state rendering
+        $hostPlayerId = null;
+        foreach ($playersData as $p) {
+            if ($p['is_host'] ?? false) {
+                $hostPlayerId = $p['id'];
+                break;
+            }
+        }
+        
         return [
             'success' => true,
             'gameId' => $game->id,
             'sessionToken' => $hostToken,
             'sessionTokens' => $sessionTokens,
-            'state' => $game->toArray()
+            'state' => $game->toArray($hostPlayerId)
         ];
     }
 

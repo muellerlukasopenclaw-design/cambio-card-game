@@ -61,8 +61,7 @@ class Database {
                 ready INTEGER NOT NULL DEFAULT 0,
                 session_token TEXT,
                 token_hash TEXT,
-                joined_at INTEGER NOT NULL,
-                FOREIGN KEY (lobby_id) REFERENCES lobbies(id) ON DELETE CASCADE
+                joined_at INTEGER NOT NULL
             )
         ');
         
