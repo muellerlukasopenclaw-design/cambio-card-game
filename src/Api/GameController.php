@@ -39,13 +39,18 @@ class GameController {
         $pdo = $this->db->getConnection();
         $now = time();
 
+        $stateJson = json_encode($game->toPersistedArray());
+        if ($stateJson === false) {
+            return ['success' => false, 'error' => 'JSON encoding failed: ' . json_last_error_msg()];
+        }
+        
         $pdo->prepare('
             INSERT INTO games (id, lobby_id, state, phase, round, current_player_index, config, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ')->execute([
             $game->id,
             $lobbyId,
-            json_encode($game->toPersistedArray()),
+            $stateJson,
             $game->phase,
             $game->round,
             $game->currentPlayerIndex,
