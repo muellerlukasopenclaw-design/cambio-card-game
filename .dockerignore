@@ -13,7 +13,6 @@ Thumbs.db
 coverage
 README.md
 test-server.js
-docs
 tests
 phpunit.xml
 docker-compose.yml

@@ -8,7 +8,7 @@ Ein browserbasiertes Kartenspiel im Stil von "Cabo" als Progressive Web App (PWA
 - **Lokaler Hotseat-Modus** (mehrere Spieler am gleichen Gerät)
 - **Online-Multiplayer** über Lobby-Codes
 - **Gemischte Modi** (Menschen + Bots)
-- **PWA-fähig** (installierbar, Offline-Einzelspieler)
+- **PWA-fähig** (installierbar, Offline-Fallback für statische Seite)
 - **Responsive Design** (Smartphone-optimiert, Desktop-fähig)
 - **Dark Mode**
 

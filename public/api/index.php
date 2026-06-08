@@ -67,24 +67,49 @@ try {
     // Auto-cleanup expired lobbies
     $lobbyController->cleanupExpired();
     
-    // Rate limiting (simple in-memory)
+    // Rate limiting with SQLite (thread-safe, persistent)
     $clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    $rateKey = 'rate_' . md5($clientIp . $path);
-    $rateFile = sys_get_temp_dir() . '/' . $rateKey;
-    $rateLimit = 60; // requests per minute
-    
-    $rateData = @json_decode(@file_get_contents($rateFile) ?: '{}', true);
     $now = time();
-    if (($rateData['time'] ?? 0) < $now - 60) {
-        $rateData = ['time' => $now, 'count' => 0];
-    }
-    $rateData['count'] = ($rateData['count'] ?? 0) + 1;
-    @file_put_contents($rateFile, json_encode($rateData));
+    $window = 60; // 1 minute window
     
-    if ($rateData['count'] > $rateLimit) {
-        http_response_code(429);
-        echo json_encode(['success' => false, 'error' => 'Rate limit exceeded']);
-        exit;
+    // Different limits for different endpoints
+    $limits = [
+        '/lobby/create' => 5,
+        '/lobby/join' => 10,
+        '/game/action' => 30,
+        'default' => 60
+    ];
+    $rateLimit = $limits[$path] ?? $limits['default'];
+    
+    try {
+        $pdo = $db->getPdo();
+        $pdo->exec('CREATE TABLE IF NOT EXISTS rate_limits (
+            ip TEXT PRIMARY KEY,
+            path TEXT,
+            count INTEGER,
+            window_start INTEGER
+        )');
+        
+        $stmt = $pdo->prepare('SELECT count, window_start FROM rate_limits WHERE ip = ? AND path = ?');
+        $stmt->execute([$clientIp, $path]);
+        $row = $stmt->fetch();
+        
+        if ($row && $row['window_start'] > $now - $window) {
+            $count = $row['count'] + 1;
+            if ($count > $rateLimit) {
+                http_response_code(429);
+                echo json_encode(['success' => false, 'error' => 'Rate limit exceeded']);
+                exit;
+            }
+            $stmt = $pdo->prepare('UPDATE rate_limits SET count = ? WHERE ip = ? AND path = ?');
+            $stmt->execute([$count, $clientIp, $path]);
+        } else {
+            $stmt = $pdo->prepare('INSERT OR REPLACE INTO rate_limits (ip, path, count, window_start) VALUES (?, ?, 1, ?)');
+            $stmt->execute([$clientIp, $path, $now]);
+        }
+    } catch (\Exception $e) {
+        // If rate limiting fails, allow the request
+        error_log('Rate limiting error: ' . $e->getMessage());
     }
     
     $response = null;
@@ -299,7 +324,10 @@ try {
     
     // Set HTTP status code based on response
     if (isset($response['success']) && $response['success'] === false) {
-        if (isset($response['error'])) {
+        // Use structured httpStatus from controller if available
+        if (isset($response['httpStatus']) && is_int($response['httpStatus'])) {
+            http_response_code($response['httpStatus']);
+        } elseif (isset($response['error'])) {
             $error = $response['error'];
             if (str_contains($error, 'nicht gefunden') || str_contains($error, 'nicht verfügbar')) {
                 http_response_code(404);

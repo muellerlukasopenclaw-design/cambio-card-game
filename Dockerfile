@@ -36,4 +36,8 @@ RUN chown -R www-data:www-data /var/www/html
 # Create data directory for SQLite
 RUN mkdir -p /var/www/html/data && chown -R www-data:www-data /var/www/html/data
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD php -r "echo file_get_contents('http://localhost/api/health') ? 'ok' : 'fail';" || exit 1
+
 EXPOSE 80

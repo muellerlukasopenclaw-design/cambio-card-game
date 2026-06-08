@@ -45,7 +45,7 @@ jobs:
         run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
 
       - name: Check JS syntax
-        run: node --check public/app.js
+        run: find public -maxdepth 1 -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Run PHPUnit tests
         run: vendor/bin/phpunit
@@ -81,6 +81,25 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
             type=sha,prefix=,suffix=,format=short
+
+      - name: Build Docker image (test)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: cambio-test:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: |
+          docker run -d -p 8080:80 --name cambio-smoke cambio-test:latest
+          sleep 3
+          curl -f http://localhost:8080/api/health || exit 1
+          curl -f http://localhost:8080/ || exit 1
+          docker stop cambio-smoke && docker rm cambio-smoke
 
       - name: Build and push
         uses: docker/build-push-action@v5
