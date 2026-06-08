@@ -1,0 +1,22 @@
+{
+    "name": "muellerlukas/cambio-card-game",
+    "description": "Cambio - A tactical card game with bots, hotseat and online multiplayer",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Cambio\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Cambio\\Tests\\": "tests/"
+        }
+    }
+}
