@@ -994,31 +994,40 @@ function showRules() {
         <h3>Ziel</h3>
         <p>Minimiere den Wert deiner Karten. Der Spieler mit den wenigsten Punkten gewinnt.</p>
         
-        <h3>Kartenwerte</h3>
+        <h3>🃏 Kartenwerte</h3>
         <ul>
-            <li>A = 1 Punkt</li>
-            <li>2-6 = Augenzahl</li>
-            <li>7,8 = 7 Punkte (👁 Peek: eigene Karte anschauen)</li>
-            <li>9,10 = 9 Punkte (🔍 Spy: fremde Karte anschauen)</li>
-            <li>J,Q = 11 Punkte (🔄 Swap: Karten tauschen)</li>
-            <li>K = 13 Punkte</li>
+            <li><strong>A</strong> = 1 Punkt</li>
+            <li><strong>2-6</strong> = Augenzahl</li>
+            <li><strong>7,8</strong> = 7 Punkte (👁 Peek: eigene Karte anschauen)</li>
+            <li><strong>9,10</strong> = 9 Punkte (🔍 Spy: fremde Karte anschauen)</li>
+            <li><strong>J,Q</strong> = 11 Punkte (🔄 Swap: Karten tauschen)</li>
+            <li><strong>K</strong> = 13 Punkte</li>
         </ul>
         
-        <h3>Spielablauf</h3>
-        <p>1. Jeder bekommt 4 Karten (2 davon kurz anschauen)</p>
-        <p>2. Zieh vom Stapel oder nimm die oberste Ablagekarte</p>
-        <p>3. Tausche mit deiner Hand oder lege ab (Aktion möglich)</p>
-        <p>4. Sage "Cabo!" wenn du denkst, du hast die wenigsten Punkte</p>
-        <p>5. Alle anderen bekommen noch einen Zug, dann Rundenende</p>
+        <h3>📋 Spielablauf</h3>
+        <ol>
+            <li>Jeder bekommt 4 Karten (2 davon kurz anschauen)</li>
+            <li>Zieh vom Stapel oder nimm die oberste Ablagekarte</li>
+            <li>Tausche mit deiner Hand oder lege ab (Aktion möglich)</li>
+            <li>Sage "Cabo!" wenn du denkst, du hast die wenigsten Punkte</li>
+            <li>Alle anderen bekommen noch einen Zug, dann Rundenende</li>
+        </ol>
         
-        <h3>Cabo-Strafe</h3>
-        <p>Wer "Cabo" ruft aber NICHT die wenigsten Punkte hat, bekommt +10 Strafpunkte.</p>
+        <h3>⚠️ Cabo-Strafe</h3>
+        <p>Wer "Cabo" ruft aber <strong>NICHT</strong> die wenigsten Punkte hat, bekommt <strong>+10 Strafpunkte</strong>!</p>
         
-        <h3>Rundenende</h3>
-        <p>Der Spieler mit den wenigsten Punkten bekommt 0 Punkte (Klassisch-Modus). Alle anderen zählen ihre Karten.</p>
+        <h3>🏁 Rundenende</h3>
+        <p>Der Spieler mit den wenigsten Punkten bekommt <strong>0 Punkte</strong>. Alle anderen zählen ihre Karten.</p>
         
-        <h3>Spielende</h3>
-        <p>Wer 100+ Punkte hat, verliert. Der mit den wenigsten Punkten gewinnt.</p>
+        <h3>🏆 Spielende</h3>
+        <p>Wer <strong>100+ Punkte</strong> hat, verliert. Der mit den wenigsten Punkten gewinnt.</p>
+        
+        <h3>💡 Tipps</h3>
+        <ul>
+            <li>Merke dir die Positionen deiner Karten!</li>
+            <li>Beobachte was Gegner ablegen.</li>
+            <li>Nicht zu früh "Cabo" rufen!</li>
+        </ul>
     `;
 }
 
