@@ -54,9 +54,32 @@ class GameController {
             $now
         ]);
         
+        // Store players in DB for token validation
+        foreach ($playersData as $p) {
+            if (!($p['is_bot'] ?? false)) {
+                $token = bin2hex(random_bytes(16));
+                $tokenHash = hash('sha256', $token);
+                $pdo->prepare('
+                    INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ')->execute([
+                    $p['id'],
+                    $lobbyId,
+                    $p['name'],
+                    0,
+                    (bool)($p['is_host'] ?? false) ? 1 : 0,
+                    1,
+                    $token,
+                    $tokenHash,
+                    $now
+                ]);
+            }
+        }
+        
         return [
             'success' => true,
             'gameId' => $game->id,
+            'sessionToken' => $token ?? null,
             'state' => $game->toArray()
         ];
     }
