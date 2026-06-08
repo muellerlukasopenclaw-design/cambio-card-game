@@ -16,8 +16,8 @@ class GameController {
         $this->db = $db;
     }
 
-    public function createGame(string $lobbyId, array $playersData, array $config = []): array {
-        $game = new GameState($config);
+    public function createGame(string $lobbyId, array $playersData, array $config = [], ?string $forcedGameId = null): array {
+        $game = new GameState($config, $forcedGameId);
         
         foreach ($playersData as $p) {
             $player = new Player(

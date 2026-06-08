@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cambio-v1';
+const CACHE_NAME = 'cambio-v0.1.9';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

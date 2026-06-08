@@ -50,8 +50,8 @@ class GameState {
     public int $createdAt;
     public int $updatedAt;
 
-    public function __construct(array $config = []) {
-        $this->id = uniqid('game_', true);
+    public function __construct(array $config = [], ?string $forcedId = null) {
+        $this->id = $forcedId ?? uniqid('game_', true);
         $this->deck = new Deck();
         $this->config = array_merge([
             'targetScore' => 100,
@@ -271,7 +271,7 @@ class GameState {
             }
         }
 
-        if (!empty($matchingIndices)) {
+        if (!empty($matchingIndices) && ($this->config['allowMultipleDiscard'] ?? false)) {
             // Discard all matching cards
             foreach ($matchingIndices as $idx) {
                 $this->deck->discard($player->hand[$idx]);

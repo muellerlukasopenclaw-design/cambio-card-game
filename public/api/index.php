@@ -35,7 +35,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
 set_exception_handler(function ($e) {
     error_log("Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Serverfehler: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'error' => 'Serverfehler']);
     exit;
 });
 
@@ -184,7 +184,8 @@ try {
                 $gameResult = $gameController->createGame(
                     $input['lobbyId'] ?? '',
                     $startResult['players'],
-                    $config
+                    $config,
+                    $startResult['gameId'] ?? null
                 );
                 $response = $gameResult;
             } else {

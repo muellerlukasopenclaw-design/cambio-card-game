@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+vendor
+data/*.db
+data/*.db-journal
+data/*.db-wal
+logs
+*.log
+.DS_Store
+Thumbs.db
+.phpunit.result.cache
+coverage

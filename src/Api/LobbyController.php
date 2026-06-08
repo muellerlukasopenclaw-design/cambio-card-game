@@ -290,7 +290,7 @@ class LobbyController {
         }
         
         $stmt = $pdo->prepare('
-            SELECT id, name, is_bot, bot_difficulty
+            SELECT id, name, is_bot, bot_difficulty, is_host
             FROM players WHERE lobby_id = ?
         ');
         $stmt->execute([$lobbyId]);

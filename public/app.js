@@ -499,7 +499,7 @@ function renderGame() {
 
     const ownPlayer = gs.players.find(p => p.id === state.playerId);
     const isMyTurn = gs.currentPlayerId === state.playerId;
-    const isPlaying = gs.phase === 'playing';
+    const isPlaying = gs.phase === 'playing' || gs.phase === 'cabo_called';
     const isInitialPeek = gs.phase === 'initial_peek';
     const isRoundEnd = gs.phase === 'round_end';
     const isGameOver = gs.phase === 'game_over';
@@ -611,9 +611,9 @@ function showRoundEnd(gs) {
         const winner = gs.winner;
         title.textContent = '🏆 Spiel beendet!';
         body.innerHTML = `
-            <p>${winner?.name || 'Unbekannt'} gewinnt!</p>
+            <p>${escapeHtml(winner?.name || 'Unbekannt')} gewinnt!</p>
             <div class="final-scores">${gs.players.map(p => `
-                <div>${p.name}: ${p.totalScore} Punkte</div>
+                <div>${escapeHtml(p.name)}: ${p.totalScore} Punkte</div>
             `).join('')}</div>
             <button class="btn primary" data-action="back">Zum Menü</button>
         `;
@@ -622,7 +622,7 @@ function showRoundEnd(gs) {
         const roundScores = gs.roundScores[gs.round] || {};
         body.innerHTML = `
             <div class="round-scores">${gs.players.map(p => `
-                <div>${p.name}: +${roundScores[p.id] || 0} (Gesamt: ${p.totalScore})</div>
+                <div>${escapeHtml(p.name)}: +${roundScores[p.id] || 0} (Gesamt: ${p.totalScore})</div>
             `).join('')}</div>
             <button class="btn primary" data-action="next-round">Nächste Runde</button>
         `;
