@@ -47,6 +47,9 @@ jobs:
       - name: Check JS syntax
         run: node --check public/app.js
 
+      - name: Run PHPUnit tests
+        run: vendor/bin/phpunit
+
       - name: Verify static assets exist
         run: |
           test -f public/index.html
