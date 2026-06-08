@@ -28,9 +28,9 @@ set_error_handler(function ($severity, $message, $file, $line) {
 });
 
 set_exception_handler(function ($e) {
-    error_log("Exception: " . $e->getMessage());
+    error_log("Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Internal Server Error']);
+    echo json_encode(['success' => false, 'error' => 'Serverfehler: ' . $e->getMessage()]);
     exit;
 });
 
