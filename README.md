@@ -19,11 +19,12 @@ Siehe [docs/rules.md](docs/rules.md)
 ## Technischer Stack
 
 - **Frontend:** Vanilla JavaScript, HTML5, CSS3
-- **Backend:** PHP 8.x
+- **Backend:** PHP 8.2 (Apache)
 - **Datenbank:** SQLite
-- **Echtzeit:** Server-Sent Events (SSE)
-- **Container:** Nginx + PHP-FPM
+- **Synchronisierung:** Polling-basiert (HTTP-Requests)
+- **Container:** PHP-Apache (Docker)
 - **CI/CD:** GitHub Actions → GHCR
+- **Tests:** PHPUnit (Game Engine, Security, Lobby)
 
 ## Lokale Entwicklung
 
