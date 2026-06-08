@@ -206,7 +206,8 @@ async function startSingleplayer() {
         localStorage.setItem('cambio_session', JSON.stringify({
             gameId: state.gameId,
             playerId: state.playerId,
-            sessionToken: state.sessionToken
+            sessionToken: state.gameToken,
+            mode: 'singleplayer'
         }));
         showScreen('game');
         renderGame();
@@ -259,7 +260,18 @@ async function startHotseat() {
     if (res.success) {
         state.gameId = res.gameId;
         state.gameState = res.state;
-        state.gameToken = res.sessionToken || null;
+        // Store all session tokens for hotseat players
+        state.hotseat.tokens = res.sessionTokens || {};
+        state.gameToken = state.hotseat.tokens[state.playerId] || res.sessionToken || null;
+        // Save hotseat session for restore
+        localStorage.setItem('cambio_session', JSON.stringify({
+            gameId: state.gameId,
+            playerId: state.playerId,
+            sessionToken: state.gameToken,
+            hotseatPlayers: state.hotseat.players,
+            hotseatTokens: state.hotseat.tokens,
+            mode: 'hotseat'
+        }));
         showScreen('game');
         renderGame();
         if (state.gameState.phase === 'initial_peek') {
@@ -285,6 +297,8 @@ function hideHotseatShield() {
 function nextHotseatPlayer() {
     state.hotseat.currentIndex = (state.hotseat.currentIndex + 1) % state.hotseat.players.length;
     state.playerId = state.hotseat.players[state.hotseat.currentIndex].id;
+    // Update token for current player
+    state.gameToken = state.hotseat.tokens[state.playerId] || null;
     showHotseatShield();
 }
 
@@ -305,6 +319,14 @@ async function createLobby() {
         state.playerId = res.playerId;
         state.sessionToken = res.sessionToken;
         state.isHost = true;
+        // Save lobby session for restore
+        localStorage.setItem('cambio_session', JSON.stringify({
+            lobbyId: state.lobbyId,
+            playerId: state.playerId,
+            sessionToken: state.sessionToken,
+            isHost: true,
+            mode: 'lobby'
+        }));
         showLobby();
     } else {
         toast(res.error || 'Fehler', 'error');
@@ -327,6 +349,14 @@ async function joinLobby() {
         state.playerId = res.playerId;
         state.sessionToken = res.sessionToken;
         state.isHost = false;
+        // Save lobby session for restore
+        localStorage.setItem('cambio_session', JSON.stringify({
+            lobbyId: state.lobbyId,
+            playerId: state.playerId,
+            sessionToken: state.sessionToken,
+            isHost: false,
+            mode: 'lobby'
+        }));
         showLobby();
     } else {
         toast(res.error || 'Fehler', 'error');
@@ -339,6 +369,14 @@ async function showLobby() {
     $('#btn-start-game').disabled = true;
     await pollLobby();
     state.pollInterval = setInterval(pollLobby, 2000);
+}
+
+async function renderLobbyState() {
+    // Alias for session restore - same as showLobby but without resetting UI
+    await pollLobby();
+    if (!state.pollInterval) {
+        state.pollInterval = setInterval(pollLobby, 2000);
+    }
 }
 
 async function pollLobby() {
@@ -631,12 +669,10 @@ function showRoundEnd(gs) {
 
 // ─── Game Actions ───────────────────────────────────────────────────
 async function actionDrawDeck() {
-    if (!lockButton('draw_deck')) return;
     await sendAction({ action: 'draw_deck' });
 }
 
 async function actionDrawDiscard() {
-    if (!lockButton('draw_discard')) return;
     await sendAction({ action: 'draw_discard' });
 }
 
@@ -712,6 +748,11 @@ async function startNewRound() {
 function startPolling() {
     if (state.pollInterval) clearInterval(state.pollInterval);
     state.pollInterval = setInterval(pollGame, 1500);
+}
+
+function startLobbyPolling() {
+    if (state.pollInterval) clearInterval(state.pollInterval);
+    state.pollInterval = setInterval(pollLobby, 2000);
 }
 
 function stopPolling() {
@@ -991,6 +1032,12 @@ function init() {
                 state.playerId = session.playerId;
                 state.sessionToken = session.sessionToken;
                 state.gameToken = session.sessionToken;
+                // Restore hotseat data if available
+                if (session.mode === 'hotseat' && session.hotseatPlayers) {
+                    state.hotseat.players = session.hotseatPlayers;
+                    state.hotseat.tokens = session.hotseatTokens || {};
+                    state.hotseat.currentIndex = 0;
+                }
                 showScreen('game');
                 renderGame();
                 startPolling();
@@ -1001,8 +1048,8 @@ function init() {
                 state.sessionToken = session.sessionToken;
                 state.isHost = session.isHost || false;
                 showScreen('lobby');
-                renderLobby();
-                startPolling();
+                renderLobbyState();
+                startLobbyPolling();
                 return;
             }
         } catch (e) {
