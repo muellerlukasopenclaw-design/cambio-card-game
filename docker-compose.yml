@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   cambio:
-    image: ghcr.io/muellerlukasopenclaw-design/cambio-card-game:latest
+    image: ghcr.io/muellerlukasopenclaw-design/cambio-card-game:${VERSION:-latest}
     container_name: cambio-card-game
     restart: unless-stopped
     ports:
