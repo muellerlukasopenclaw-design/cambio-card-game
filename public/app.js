@@ -397,21 +397,35 @@ async function pollLobby() {
     $('#lobby-code').textContent = lobby.code;
 
     const list = $('#lobby-players');
-    list.innerHTML = lobby.players.map(p => `
+    // Show human players
+    let html = lobby.players.map(p => `
         <div class="player-item">
-            <span>${escapeHtml(p.name)}${p.is_bot ? ' (Bot)' : ''}</span>
+            <span>${escapeHtml(p.name)}${p.ready ? ' ✅' : ''}</span>
             <span class="${p.is_host ? 'host' : ''}">${p.is_host ? 'Host' : ''}</span>
             ${!p.is_bot && p.id === state.playerId ? '<button class="btn small" data-action="ready">Ready</button>' : ''}
-            ${lobby.isHost && p.is_bot ? `<button class="btn small danger" data-action="remove-bot" data-bot-id="${p.id}">×</button>` : ''}
         </div>
     `).join('');
+    
+    // Show bots
+    html += lobby.bots.map(b => `
+        <div class="player-item bot">
+            <span>${escapeHtml(b.name)} (Bot — ${b.bot_difficulty || 'medium'})</span>
+            ${lobby.isHost ? `<button class="btn small danger" data-action="remove-bot" data-bot-id="${b.id}">×</button>` : ''}
+        </div>
+    `).join('');
+    
+    list.innerHTML = html;
 
     state.isHost = lobby.isHost;
-    const allReady = lobby.players.every(p => p.is_bot || p.ready);
-    $('#btn-start-game').disabled = !lobby.isHost || lobby.players.length < 2 || !allReady;
+    const allReady = lobby.players.every(p => p.ready);
+    const canStart = lobby.isHost && lobby.playerCount >= 2 && allReady && lobby.canJoin !== false;
+    $('#btn-start-game').disabled = !canStart;
     
-    // Add bot button for host with difficulty selector
-    if (lobby.isHost && lobby.players.length < lobby.maxPlayers) {
+    // Show lobby info
+    $('#lobby-info').textContent = `${lobby.playerCount}/${lobby.maxPlayers} Spieler${lobby.isFull ? ' (voll)' : ''}`;
+    
+    // Add bot button for host (only if not full)
+    if (lobby.isHost && !lobby.isFull) {
         const botContainer = document.createElement('div');
         botContainer.className = 'bot-add-container';
         botContainer.innerHTML = `

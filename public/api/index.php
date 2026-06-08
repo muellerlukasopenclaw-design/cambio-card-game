@@ -105,11 +105,13 @@ try {
         case '/lobby/state':
             $lobbyId = $input['lobbyId'] ?? $_GET['lobbyId'] ?? '';
             $token = $input['token'] ?? $_GET['token'] ?? '';
-            if (!$lobbyId || !$token) {
-                $response = ['success' => false, 'error' => 'Lobby ID und Token erforderlich'];
+            if (!$lobbyId) {
+                $response = ['success' => false, 'error' => 'Lobby ID erforderlich'];
                 break;
             }
-            $response = $lobbyController->getState($lobbyId, hash('sha256', $token));
+            // Token optional for spectator mode
+            $tokenHash = $token ? hash('sha256', $token) : '';
+            $response = $lobbyController->getState($lobbyId, $tokenHash);
             break;
             
         case '/lobby/ready':

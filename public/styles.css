@@ -462,6 +462,18 @@ body {
     margin: 12px 0;
 }
 
+.lobby-meta {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    text-align: center;
+}
+
+.player-item.bot {
+    opacity: 0.8;
+    font-style: italic;
+}
+
 .lobby-code-display {
     display: flex;
     align-items: center;

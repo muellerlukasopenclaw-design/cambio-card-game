@@ -74,9 +74,10 @@ class LobbyController {
         
         $stmt = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ?');
         $stmt->execute([$lobby['id']]);
-        $playerCount = $stmt->fetchColumn();
+        $playerCount = (int)$stmt->fetchColumn();
         
-        if ($playerCount >= $lobby['max_players']) {
+        $isFull = $playerCount >= (int)$lobby['max_players'];
+        if ($isFull) {
             return ['success' => false, 'error' => 'Lobby ist voll'];
         }
         
@@ -102,7 +103,7 @@ class LobbyController {
         ];
     }
 
-    public function getState(string $lobbyId, string $tokenHash): array {
+    public function getState(string $lobbyId, string $tokenHash = ''): array {
         $pdo = $this->db->getConnection();
         
         $stmt = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?');
@@ -120,9 +121,31 @@ class LobbyController {
         $stmt->execute([$lobbyId]);
         $players = $stmt->fetchAll();
         
-        $stmt = $pdo->prepare('SELECT id, is_host FROM players WHERE lobby_id = ? AND token_hash = ?');
-        $stmt->execute([$lobbyId, $tokenHash]);
-        $currentPlayer = $stmt->fetch();
+        // Calculate derived fields
+        $playerCount = count($players);
+        $humanPlayers = array_filter($players, fn($p) => !$p['is_bot']);
+        $botPlayers = array_filter($players, fn($p) => $p['is_bot']);
+        $isFull = $playerCount >= $lobby['max_players'];
+        $canJoin = !$isFull && $lobby['status'] === 'waiting';
+        
+        // Find host
+        $hostId = null;
+        $hostName = null;
+        foreach ($players as $p) {
+            if ($p['is_host']) {
+                $hostId = $p['id'];
+                $hostName = $p['name'];
+                break;
+            }
+        }
+        
+        // Current player info (if token provided)
+        $currentPlayer = null;
+        if ($tokenHash) {
+            $stmt = $pdo->prepare('SELECT id, is_host FROM players WHERE lobby_id = ? AND token_hash = ?');
+            $stmt->execute([$lobbyId, $tokenHash]);
+            $currentPlayer = $stmt->fetch();
+        }
         
         return [
             'success' => true,
@@ -131,9 +154,19 @@ class LobbyController {
                 'code' => $lobby['code'],
                 'name' => $lobby['name'],
                 'status' => $lobby['status'],
-                'maxPlayers' => $lobby['max_players'],
+                'mode' => $lobby['mode'] ?? 'classic',
+                'maxPlayers' => (int)$lobby['max_players'],
+                'playerCount' => $playerCount,
+                'isFull' => $isFull,
+                'canJoin' => $canJoin,
+                'hostId' => $hostId,
+                'hostName' => $hostName,
                 'gameId' => $lobby['game_id'] ?? null,
-                'players' => $players,
+                'createdAt' => (int)$lobby['created_at'],
+                'updatedAt' => (int)$lobby['updated_at'],
+                'expiresAt' => (int)$lobby['expires_at'],
+                'players' => array_values($humanPlayers),
+                'bots' => array_values($botPlayers),
                 'isHost' => $currentPlayer ? (bool)$currentPlayer['is_host'] : false,
                 'playerId' => $currentPlayer['id'] ?? null
             ]
@@ -225,9 +258,10 @@ class LobbyController {
         
         $stmt = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ?');
         $stmt->execute([$lobbyId]);
-        $playerCount = $stmt->fetchColumn();
+        $playerCount = (int)$stmt->fetchColumn();
         
-        if ($playerCount >= $lobby['max_players']) {
+        $isFull = $playerCount >= (int)$lobby['max_players'];
+        if ($isFull) {
             return ['success' => false, 'error' => 'Lobby ist voll'];
         }
         
