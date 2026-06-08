@@ -585,8 +585,8 @@ function renderGame() {
     // Other players
     const others = gs.players.filter(p => p.id !== state.playerId);
     $('#other-players').innerHTML = others.map(p => `
-        <div class="player-area ${p.id === gs.currentPlayerId ? 'active' : ''}" data-player-id="${p.id}">
-            <span class="name">${escapeHtml(p.name)}</span>
+        <div class="player-area ${p.id === gs.currentPlayerId ? 'active' : ''} ${p.calledCabo ? 'cabo' : ''}" data-player-id="${p.id}">
+            <span class="name">${escapeHtml(p.name)}${p.calledCabo ? ' 🚨' : ''}</span>
             <div class="cards">${Array.from({length: p.cardCount}, (_, i) => backCard(i, isMyTurn && ['spy','swap'].includes(gs.pendingAction))).join('')}</div>
         </div>
     `).join('');
