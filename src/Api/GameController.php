@@ -61,10 +61,26 @@ class GameController {
         ];
     }
 
-    public function getState(string $gameId, string $playerId): array {
+    public function getState(string $gameId, string $playerId, string $tokenHash = ''): array {
         $game = $this->getGame($gameId);
         if (!$game) {
             return ['success' => false, 'error' => 'Spiel nicht gefunden'];
+        }
+        
+        // Verify player belongs to game
+        $player = $game->getPlayerById($playerId);
+        if (!$player) {
+            return ['success' => false, 'error' => 'Spieler nicht im Spiel'];
+        }
+        
+        // Verify token if provided
+        if ($tokenHash && !$player->isBot) {
+            $pdo = $this->db->getConnection();
+            $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND token_hash = ?');
+            $stmt->execute([$playerId, $tokenHash]);
+            if (!$stmt->fetch()) {
+                return ['success' => false, 'error' => 'Ungültiges Token'];
+            }
         }
         
         return [
@@ -73,7 +89,114 @@ class GameController {
         ];
     }
 
-    public function performAction(string $gameId, string $playerId, array $action): array {
+    public function performAction(string $gameId, string $playerId, array $action, string $tokenHash = ''): array {
+        $pdo = $this->db->getConnection();
+        $pdo->beginTransaction();
+        
+        try {
+            $game = $this->getGame($gameId);
+            if (!$game) {
+                $pdo->rollBack();
+                return ['success' => false, 'error' => 'Spiel nicht gefunden'];
+            }
+            
+            $player = $game->getPlayerById($playerId);
+            if (!$player) {
+                $pdo->rollBack();
+                return ['success' => false, 'error' => 'Spieler nicht gefunden'];
+            }
+            
+            // Verify token for non-bot players
+            if (!$player->isBot && $tokenHash) {
+                $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND token_hash = ?');
+                $stmt->execute([$playerId, $tokenHash]);
+                if (!$stmt->fetch()) {
+                    $pdo->rollBack();
+                    return ['success' => false, 'error' => 'Ungültiges Token'];
+                }
+            }
+            
+            $currentPlayer = $game->getCurrentPlayer();
+            if (!$currentPlayer || $currentPlayer->id !== $playerId) {
+                $pdo->rollBack();
+                return ['success' => false, 'error' => 'Nicht an der Reihe'];
+            }
+            
+            $actionType = $action['action'] ?? '';
+            $result = false;
+            
+            switch ($actionType) {
+                case GameState::ACTION_DRAW_DECK:
+                    $result = $game->drawFromDeck($playerId);
+                    break;
+                    
+                case GameState::ACTION_DRAW_DISCARD:
+                    $result = $game->takeFromDiscard($playerId);
+                    break;
+                    
+                case GameState::ACTION_CALL_CABO:
+                    $result = $game->callCabo($playerId);
+                    break;
+                    
+                case GameState::ACTION_SWAP_WITH_HAND:
+                    $result = $game->swapWithHand($playerId, $action['index'] ?? 0);
+                    break;
+                    
+                case GameState::ACTION_DISCARD:
+                    $result = $game->discardDrawn($playerId);
+                    break;
+                    
+                case GameState::ACTION_PEEK:
+                    $result = $game->performPeek($playerId, $action['index'] ?? 0);
+                    break;
+                    
+                case GameState::ACTION_SPY:
+                    $result = $game->performSpy($playerId, $action['targetId'] ?? '', $action['index'] ?? 0);
+                    break;
+                    
+                case GameState::ACTION_SWAP:
+                    $result = $game->performSwap(
+                        $playerId,
+                        $action['ownIndex'] ?? 0,
+                        $action['targetId'] ?? '',
+                        $action['targetIndex'] ?? 0
+                    );
+                    break;
+
+                case GameState::ACTION_SKIP:
+                    $result = $game->skipAction($playerId);
+                    break;
+
+                default:
+                    $pdo->rollBack();
+                    return ['success' => false, 'error' => 'Unbekannte Aktion'];
+            }
+            
+            if (!$result) {
+                $pdo->rollBack();
+                return ['success' => false, 'error' => 'Aktion nicht möglich'];
+            }
+            
+            $this->saveGame($game);
+            $this->logEvent($game->id, $playerId, $actionType, $action);
+            
+            // Process bot turns
+            $this->processBotTurns($game);
+            
+            $pdo->commit();
+            
+            return [
+                'success' => true,
+                'state' => $game->toArray($playerId)
+            ];
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            error_log('Game action error: ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Serverfehler bei der Aktion'];
+        }
+    }
+
+    public function performInitialPeek(string $gameId, string $playerId, int $cardIndex, string $tokenHash = ''): array {
         $game = $this->getGame($gameId);
         if (!$game) {
             return ['success' => false, 'error' => 'Spiel nicht gefunden'];
@@ -84,80 +207,14 @@ class GameController {
             return ['success' => false, 'error' => 'Spieler nicht gefunden'];
         }
         
-        $currentPlayer = $game->getCurrentPlayer();
-        if (!$currentPlayer || $currentPlayer->id !== $playerId) {
-            return ['success' => false, 'error' => 'Nicht an der Reihe'];
-        }
-        
-        $actionType = $action['action'] ?? '';
-        $result = false;
-        
-        switch ($actionType) {
-            case GameState::ACTION_DRAW_DECK:
-                $result = $game->drawFromDeck($playerId);
-                break;
-                
-            case GameState::ACTION_DRAW_DISCARD:
-                $result = $game->takeFromDiscard($playerId);
-                break;
-                
-            case GameState::ACTION_CALL_CABO:
-                $result = $game->callCabo($playerId);
-                break;
-                
-            case GameState::ACTION_SWAP_WITH_HAND:
-                $result = $game->swapWithHand($playerId, $action['index'] ?? 0);
-                break;
-                
-            case GameState::ACTION_DISCARD:
-                $result = $game->discardDrawn($playerId);
-                break;
-                
-            case GameState::ACTION_PEEK:
-                $result = $game->performPeek($playerId, $action['index'] ?? 0);
-                break;
-                
-            case GameState::ACTION_SPY:
-                $result = $game->performSpy($playerId, $action['targetId'] ?? '', $action['index'] ?? 0);
-                break;
-                
-            case GameState::ACTION_SWAP:
-                $result = $game->performSwap(
-                    $playerId,
-                    $action['ownIndex'] ?? 0,
-                    $action['targetId'] ?? '',
-                    $action['targetIndex'] ?? 0
-                );
-                break;
-
-            case GameState::ACTION_SKIP:
-                $result = $game->skipAction($playerId);
-                break;
-
-            default:
-                return ['success' => false, 'error' => 'Unbekannte Aktion'];
-        }
-        
-        if (!$result) {
-            return ['success' => false, 'error' => 'Aktion nicht möglich'];
-        }
-        
-        $this->saveGame($game);
-        $this->logEvent($game->id, $playerId, $actionType, $action);
-        
-        // Process bot turns
-        $this->processBotTurns($game);
-        
-        return [
-            'success' => true,
-            'state' => $game->toArray($playerId)
-        ];
-    }
-
-    public function performInitialPeek(string $gameId, string $playerId, int $cardIndex): array {
-        $game = $this->getGame($gameId);
-        if (!$game) {
-            return ['success' => false, 'error' => 'Spiel nicht gefunden'];
+        // Verify token for non-bot players
+        if (!$player->isBot && $tokenHash) {
+            $pdo = $this->db->getConnection();
+            $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND token_hash = ?');
+            $stmt->execute([$playerId, $tokenHash]);
+            if (!$stmt->fetch()) {
+                return ['success' => false, 'error' => 'Ungültiges Token'];
+            }
         }
         
         $result = $game->performInitialPeek($playerId, $cardIndex);
@@ -184,10 +241,30 @@ class GameController {
         ];
     }
 
-    public function startNewRound(string $gameId, string $playerId): array {
+    public function startNewRound(string $gameId, string $playerId, string $tokenHash = ''): array {
         $game = $this->getGame($gameId);
         if (!$game) {
             return ['success' => false, 'error' => 'Spiel nicht gefunden'];
+        }
+        
+        $player = $game->getPlayerById($playerId);
+        if (!$player) {
+            return ['success' => false, 'error' => 'Spieler nicht gefunden'];
+        }
+        
+        // Verify token for non-bot players
+        if (!$player->isBot && $tokenHash) {
+            $pdo = $this->db->getConnection();
+            $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND token_hash = ?');
+            $stmt->execute([$playerId, $tokenHash]);
+            if (!$stmt->fetch()) {
+                return ['success' => false, 'error' => 'Ungültiges Token'];
+            }
+        }
+        
+        // Only host can start new round
+        if (!$player->isHost) {
+            return ['success' => false, 'error' => 'Nur der Host kann eine neue Runde starten'];
         }
         
         if ($game->phase !== GameState::PHASE_ROUND_END) {

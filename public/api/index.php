@@ -192,11 +192,12 @@ try {
         case '/game/state':
             $gameId = $input['gameId'] ?? $_GET['gameId'] ?? '';
             $playerId = $input['playerId'] ?? $_GET['playerId'] ?? '';
+            $token = $input['token'] ?? $_GET['token'] ?? '';
             if (!$gameId) {
                 $response = ['success' => false, 'error' => 'Game ID erforderlich'];
                 break;
             }
-            $response = $gameController->getState($gameId, $playerId);
+            $response = $gameController->getState($gameId, $playerId, hash('sha256', $token));
             break;
             
         case '/game/action':
@@ -208,7 +209,8 @@ try {
             $response = $gameController->performAction(
                 $input['gameId'] ?? '',
                 $input['playerId'] ?? '',
-                $input['action'] ?? []
+                $input['action'] ?? [],
+                hash('sha256', $input['token'] ?? '')
             );
             break;
             
@@ -221,7 +223,8 @@ try {
             $response = $gameController->performInitialPeek(
                 $input['gameId'] ?? '',
                 $input['playerId'] ?? '',
-                $input['cardIndex'] ?? 0
+                $input['cardIndex'] ?? 0,
+                hash('sha256', $input['token'] ?? '')
             );
             break;
             
@@ -233,7 +236,8 @@ try {
             }
             $response = $gameController->startNewRound(
                 $input['gameId'] ?? '',
-                $input['playerId'] ?? ''
+                $input['playerId'] ?? '',
+                hash('sha256', $input['token'] ?? '')
             );
             break;
             

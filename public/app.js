@@ -14,6 +14,7 @@ const state = {
     gameId: null,
     gameState: null,
     isHost: false,
+    gameToken: null,
     settings: {
         animations: true,
         sounds: false,
@@ -140,6 +141,8 @@ function handleAction(action) {
         case 'start-game': startGame(); break;
         case 'leave-lobby': leaveLobby(); break;
         case 'add-player': addHotseatPlayer(); break;
+        case 'ready': setReady(); break;
+        case 'add-bot': addBot(); break;
         case 'draw-deck': actionDrawDeck(); break;
         case 'draw-discard': actionDrawDiscard(); break;
         case 'call-cabo': actionCallCabo(); break;
@@ -190,6 +193,7 @@ async function startSingleplayer() {
     if (res.success) {
         state.gameId = res.gameId;
         state.gameState = res.state;
+        state.gameToken = res.sessionToken || null;
         showScreen('game');
         renderGame();
         startPolling();
@@ -241,6 +245,7 @@ async function startHotseat() {
     if (res.success) {
         state.gameId = res.gameId;
         state.gameState = res.state;
+        state.gameToken = res.sessionToken || null;
         showScreen('game');
         renderGame();
         if (state.gameState.phase === 'initial_peek') {
@@ -344,16 +349,70 @@ async function pollLobby() {
         <div class="player-item">
             <span>${escapeHtml(p.name)}${p.is_bot ? ' (Bot)' : ''}</span>
             <span class="${p.is_host ? 'host' : ''}">${p.is_host ? 'Host' : ''}</span>
+            ${!p.is_bot && p.id === state.playerId ? '<button class="btn small" data-action="ready">Ready</button>' : ''}
         </div>
     `).join('');
 
     state.isHost = lobby.isHost;
-    $('#btn-start-game').disabled = !lobby.isHost || lobby.players.length < 2;
+    const allReady = lobby.players.every(p => p.is_bot || p.ready);
+    $('#btn-start-game').disabled = !lobby.isHost || lobby.players.length < 2 || !allReady;
+    
+    // Add bot button for host
+    if (lobby.isHost && lobby.players.length < lobby.maxPlayers) {
+        const botBtn = document.createElement('button');
+        botBtn.className = 'btn small';
+        botBtn.textContent = '+ Bot';
+        botBtn.dataset.action = 'add-bot';
+        list.appendChild(botBtn);
+    }
+    
+    // Auto-transition to game when lobby status changes to playing
+    if (lobby.status === 'playing' && !state.gameId) {
+        clearInterval(state.pollInterval);
+        // Get game state
+        const gameRes = await api('/game/state', 'GET', {
+            gameId: state.lobbyId,
+            playerId: state.playerId,
+            token: state.sessionToken
+        });
+        if (gameRes.success) {
+            state.gameId = gameRes.state.id;
+            state.gameState = gameRes.state;
+            state.gameToken = state.sessionToken;
+            showScreen('game');
+            renderGame();
+            startPolling();
+        }
+    }
 }
 
 function copyLobbyCode() {
     const code = $('#lobby-code').textContent;
     navigator.clipboard.writeText(code).then(() => toast('Code kopiert!'));
+}
+
+async function setReady() {
+    const res = await api('/lobby/ready', 'POST', {
+        lobbyId: state.lobbyId,
+        playerId: state.playerId,
+        ready: true
+    });
+    if (res.success) {
+        toast('Bereit!');
+    }
+}
+
+async function addBot() {
+    if (!state.isHost) return;
+    const res = await api('/lobby/add-bot', 'POST', {
+        lobbyId: state.lobbyId,
+        difficulty: state.settings.botDifficulty || 'medium'
+    });
+    if (res.success) {
+        toast('Bot hinzugefügt');
+    } else {
+        toast(res.error || 'Fehler', 'error');
+    }
 }
 
 async function startGame() {
@@ -368,6 +427,7 @@ async function startGame() {
         clearInterval(state.pollInterval);
         state.gameId = res.gameId;
         state.gameState = res.state;
+        state.gameToken = state.sessionToken;
         showScreen('game');
         renderGame();
         startPolling();
@@ -543,11 +603,15 @@ async function actionCallCabo() {
 }
 
 async function sendAction(action) {
-    const res = await api('/game/action', 'POST', {
+    const body = {
         gameId: state.gameId,
         playerId: state.playerId,
         action
-    });
+    };
+    if (state.gameToken) {
+        body.token = state.gameToken;
+    }
+    const res = await api('/game/action', 'POST', body);
 
     if (res.success) {
         state.gameState = res.state;
@@ -558,11 +622,15 @@ async function sendAction(action) {
 }
 
 async function performInitialPeek(cardIndex) {
-    const res = await api('/game/peek', 'POST', {
+    const body = {
         gameId: state.gameId,
         playerId: state.playerId,
         cardIndex
-    });
+    };
+    if (state.gameToken) {
+        body.token = state.gameToken;
+    }
+    const res = await api('/game/peek', 'POST', body);
 
     if (res.success) {
         state.gameState = res.state;
@@ -579,10 +647,14 @@ async function performInitialPeek(cardIndex) {
 }
 
 async function startNewRound() {
-    const res = await api('/game/new-round', 'POST', {
+    const body = {
         gameId: state.gameId,
         playerId: state.playerId
-    });
+    };
+    if (state.gameToken) {
+        body.token = state.gameToken;
+    }
+    const res = await api('/game/new-round', 'POST', body);
 
     if (res.success) {
         state.gameState = res.state;
@@ -612,10 +684,14 @@ function stopPolling() {
 async function pollGame() {
     if (!state.gameId) return;
 
-    const res = await api('/game/state', 'GET', {
+    const params = {
         gameId: state.gameId,
         playerId: state.playerId
-    });
+    };
+    if (state.gameToken) {
+        params.token = state.gameToken;
+    }
+    const res = await api('/game/state', 'GET', params);
 
     if (res.success) {
         const oldPhase = state.gameState?.phase;
