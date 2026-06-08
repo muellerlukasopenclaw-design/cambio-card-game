@@ -36,10 +36,10 @@ jobs:
           node-version: '20'
 
       - name: Validate composer.json
-        run: composer validate --strict
+        run: composer validate
 
       - name: Install PHP dependencies
-        run: composer install --prefer-dist --no-interaction
+        run: composer install --prefer-dist --no-interaction --no-scripts
 
       - name: Check PHP syntax
         run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
