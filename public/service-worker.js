@@ -5,8 +5,8 @@ const STATIC_ASSETS = [
     '/styles.css',
     '/app.js',
     '/manifest.webmanifest',
-    '/assets/icon-192.png',
-    '/assets/icon-512.png'
+    '/assets/icon-192.svg',
+    '/assets/icon-512.svg'
 ];
 
 self.addEventListener('install', (event) => {

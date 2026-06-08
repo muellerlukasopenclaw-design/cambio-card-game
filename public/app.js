@@ -202,8 +202,8 @@ async function startSingleplayer() {
 function addHotseatPlayer() {
     const container = $('#hotseat-players');
     const count = container.querySelectorAll('.player-name').length + 1;
-    if (count > 6) {
-        toast('Maximal 6 Spieler', 'error');
+    if (count > 5) {
+        toast('Maximal 5 Spieler', 'error');
         return;
     }
     const label = document.createElement('label');
@@ -342,7 +342,7 @@ async function pollLobby() {
     const list = $('#lobby-players');
     list.innerHTML = lobby.players.map(p => `
         <div class="player-item">
-            <span>${p.name}${p.is_bot ? ' (Bot)' : ''}</span>
+            <span>${escapeHtml(p.name)}${p.is_bot ? ' (Bot)' : ''}</span>
             <span class="${p.is_host ? 'host' : ''}">${p.is_host ? 'Host' : ''}</span>
         </div>
     `).join('');

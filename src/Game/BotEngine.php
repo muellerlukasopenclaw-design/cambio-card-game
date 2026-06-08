@@ -24,12 +24,12 @@ class BotEngine {
     }
 
     private function easyAction(): array {
-        $handValue = $this->bot->getHandValue();
+        $estimatedValue = $this->estimateHandValue();
         $knownCount = count($this->bot->knownCards);
         $topDiscard = $this->game->deck->topDiscard();
         
-        // Randomly decide to call Cabo if hand seems low
-        if ($this->game->phase === GameState::PHASE_PLAYING && $handValue <= 8 && rand(1, 3) === 1) {
+        // Randomly decide to call Cabo if estimated hand seems low
+        if ($this->game->phase === GameState::PHASE_PLAYING && $estimatedValue <= 8 && rand(1, 3) === 1) {
             return ['action' => GameState::ACTION_CALL_CABO];
         }
         
@@ -60,7 +60,7 @@ class BotEngine {
             // Randomly swap unknown cards if drawn is low
             if ($drawnValue <= 4 && rand(1, 2) === 1) {
                 $unknownIndices = [];
-                for ($i = 0; $i < 4; $i++) {
+                foreach (array_keys($this->bot->hand) as $i) {
                     if (!isset($this->bot->knownCards[$i])) {
                         $unknownIndices[] = $i;
                     }
@@ -77,7 +77,7 @@ class BotEngine {
         // If action card pending, use randomly
         if ($this->game->pendingAction === GameState::ACTION_PEEK) {
             $unknownIndices = [];
-            for ($i = 0; $i < 4; $i++) {
+            foreach (array_keys($this->bot->hand) as $i) {
                 if (!isset($this->bot->knownCards[$i])) {
                     $unknownIndices[] = $i;
                 }
@@ -85,7 +85,8 @@ class BotEngine {
             if (!empty($unknownIndices)) {
                 return ['action' => GameState::ACTION_PEEK, 'index' => $unknownIndices[array_rand($unknownIndices)]];
             }
-            return ['action' => GameState::ACTION_PEEK, 'index' => rand(0, 3)];
+            $handIndices = array_keys($this->bot->hand);
+            return ['action' => GameState::ACTION_PEEK, 'index' => $handIndices[array_rand($handIndices)]];
         }
         
         if ($this->game->pendingAction === GameState::ACTION_SPY) {
@@ -127,13 +128,12 @@ class BotEngine {
     }
 
     private function mediumAction(): array {
-        $handValue = $this->bot->getHandValue();
+        $estimatedValue = $this->estimateHandValue();
         $knownCount = count($this->bot->knownCards);
         $topDiscard = $this->game->deck->topDiscard();
         
         // Call Cabo strategically
         if ($this->game->phase === GameState::PHASE_PLAYING) {
-            $estimatedValue = $this->estimateHandValue();
             if ($estimatedValue <= 6) {
                 return ['action' => GameState::ACTION_CALL_CABO];
             }
@@ -222,7 +222,6 @@ class BotEngine {
         // Hard uses medium as base but with more aggressive Cabo calling
         // and better probability estimation
         
-        $handValue = $this->bot->getHandValue();
         $estimatedValue = $this->estimateHandValue();
         
         // More aggressive Cabo calling
@@ -354,7 +353,7 @@ class BotEngine {
     }
 
     private function findUnknownIndex(): ?int {
-        for ($i = 0; $i < 4; $i++) {
+        foreach (array_keys($this->bot->hand) as $i) {
             if (!isset($this->bot->knownCards[$i])) {
                 return $i;
             }
