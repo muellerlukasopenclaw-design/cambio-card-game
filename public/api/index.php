@@ -82,7 +82,7 @@ try {
     $rateLimit = $limits[$path] ?? $limits['default'];
     
     try {
-        $pdo = $db->getPdo();
+        $pdo = $db->getConnection();
         $pdo->exec('CREATE TABLE IF NOT EXISTS rate_limits (
             ip TEXT PRIMARY KEY,
             path TEXT,
@@ -228,13 +228,13 @@ try {
                 
                 // Atomar: Lobby auf playing setzen + game_id speichern
                 if ($gameResult['success']) {
-                    $db->getPdo()->exec('BEGIN IMMEDIATE');
+                    $db->getConnection()->exec('BEGIN IMMEDIATE');
                     try {
-                        $stmt = $db->getPdo()->prepare('UPDATE lobbies SET status = ?, game_id = ?, updated_at = ? WHERE id = ?');
+                        $stmt = $db->getConnection()->prepare('UPDATE lobbies SET status = ?, game_id = ?, updated_at = ? WHERE id = ?');
                         $stmt->execute(['playing', $gameResult['gameId'], time(), $input['lobbyId'] ?? '']);
-                        $db->getPdo()->exec('COMMIT');
+                        $db->getConnection()->exec('COMMIT');
                     } catch (\Exception $e) {
-                        $db->getPdo()->exec('ROLLBACK');
+                        $db->getConnection()->exec('ROLLBACK');
                         error_log('Lobby update failed: ' . $e->getMessage());
                     }
                 }

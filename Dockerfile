@@ -24,6 +24,10 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 # Enable .htaccess
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
+# Cache invalidator - change this to force fresh build
+ARG BUILD_DATE=2026-06-08-03
+RUN echo "Build date: $BUILD_DATE"
+
 # Copy app
 COPY . /var/www/html/
 
