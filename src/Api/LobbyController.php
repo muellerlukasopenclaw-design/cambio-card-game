@@ -36,9 +36,9 @@ class LobbyController {
         ')->execute([$lobbyId, $code, $name, $hostId, $maxPlayers, 'waiting', null, $now, $now, $expires]);
         
         $pdo->prepare('
-            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, token_hash, joined_at)
-            VALUES (?, ?, ?, 0, 1, 0, ?, ?)
-        ')->execute([$hostId, $lobbyId, $hostName, $tokenHash, $now]);
+            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
+            VALUES (?, ?, ?, 0, 1, 0, ?, ?, ?)
+        ')->execute([$hostId, $lobbyId, $hostName, $sessionToken, $tokenHash, $now]);
         
         return [
             'success' => true,
@@ -86,9 +86,9 @@ class LobbyController {
         $now = time();
         
         $pdo->prepare('
-            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, token_hash, joined_at)
-            VALUES (?, ?, ?, 0, 0, 0, ?, ?)
-        ')->execute([$playerId, $lobby['id'], $playerName, $tokenHash, $now]);
+            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
+            VALUES (?, ?, ?, 0, 0, 0, ?, ?, ?)
+        ')->execute([$playerId, $lobby['id'], $playerName, $sessionToken, $tokenHash, $now]);
         
         $pdo->prepare('UPDATE lobbies SET updated_at = ? WHERE id = ?')
             ->execute([$now, $lobby['id']]);
