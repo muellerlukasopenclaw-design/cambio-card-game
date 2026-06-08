@@ -29,8 +29,8 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
 # Copy app - cache invalidated by BUILD_DATE
+RUN echo "Build date: $BUILD_DATE" > /tmp/build-date.txt
 COPY . /var/www/html/
-RUN echo "Build date: $BUILD_DATE" >> /var/www/html/build-info.txt
 
 # Install PHP dependencies
 RUN cd /var/www/html && composer install --no-dev --optimize-autoloader
