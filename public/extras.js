@@ -48,15 +48,10 @@ function sendChatMessage() {
     addChatMessage(msg);
     input.value = '';
     
-    // In multiplayer, send to server
-    if (state.lobbyId) {
-        api('/lobby/chat', 'POST', {
-            lobbyId: state.lobbyId,
-            playerId: state.playerId,
-            token: state.sessionToken,
-            message: text
-        }).catch(() => {});
-    }
+    // NOTE: Chat API endpoint not implemented yet — local only
+    // if (state.lobbyId) {
+    //     api('/lobby/chat', 'POST', { ... }).catch(() => {});
+    // }
 }
 
 function addChatMessage(msg) {
@@ -121,19 +116,13 @@ function sendReaction(targetId, emoji) {
         timestamp: Date.now()
     };
     
-    // Show locally
+    // Show locally only (API endpoint not implemented yet)
     showFloatingEmoji(targetId, emoji);
     
-    // In multiplayer, send to server
-    if (state.lobbyId) {
-        api('/lobby/reaction', 'POST', {
-            lobbyId: state.lobbyId,
-            playerId: state.playerId,
-            token: state.sessionToken,
-            targetId,
-            emoji
-        }).catch(() => {});
-    }
+    // NOTE: Reaction API endpoint not implemented yet — local only
+    // if (state.lobbyId) {
+    //     api('/lobby/reaction', 'POST', { ... }).catch(() => {});
+    // }
 }
 
 function showFloatingEmoji(targetId, emoji) {
