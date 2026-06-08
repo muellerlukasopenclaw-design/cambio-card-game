@@ -1,0 +1,16 @@
+{
+  "Name": "cambo",
+  "RepositoryURL": "https://github.com/muellerlukasopenclaw-design/cambio-card-game",
+  "RepositoryReferenceName": "refs/heads/main",
+  "ComposeFilePathInRepository": "docker-compose.yml",
+  "AutoUpdate": {
+    "Mechanism": "Webhook",
+    "Interval": "5m"
+  },
+  "Env": [
+    {
+      "name": "PHP_MEMORY_LIMIT",
+      "value": "256M"
+    }
+  ]
+}

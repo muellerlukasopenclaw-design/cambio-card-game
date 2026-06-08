@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  cambio:
+    image: ghcr.io/muellerlukasopenclaw-design/cambio-card-game:latest
+    container_name: cambio-card-game
+    restart: unless-stopped
+    ports:
+      - "6255:80"
+    volumes:
+      - cambio-data:/var/www/html/data
+    environment:
+      - PHP_MEMORY_LIMIT=256M
+      - PHP_MAX_EXECUTION_TIME=30
+
+volumes:
+  cambio-data:
