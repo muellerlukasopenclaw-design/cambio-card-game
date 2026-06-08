@@ -140,8 +140,17 @@ class LobbyController {
         ];
     }
 
-    public function setReady(string $lobbyId, string $playerId, bool $ready): array {
+    public function setReady(string $lobbyId, string $playerId, bool $ready, string $tokenHash = ''): array {
         $pdo = $this->db->getConnection();
+        
+        // Verify token
+        if ($tokenHash) {
+            $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
+            $stmt->execute([$playerId, $lobbyId, $tokenHash]);
+            if (!$stmt->fetch()) {
+                return ['success' => false, 'error' => 'Ungültiges Token'];
+            }
+        }
         
         $pdo->prepare('UPDATE players SET ready = ? WHERE id = ? AND lobby_id = ?')
             ->execute([$ready ? 1 : 0, $playerId, $lobbyId]);
@@ -152,8 +161,22 @@ class LobbyController {
         return ['success' => true];
     }
 
-    public function leave(string $lobbyId, string $playerId): array {
+    public function leave(string $lobbyId, string $playerId, string $tokenHash = ''): array {
         $pdo = $this->db->getConnection();
+        
+        // Verify token
+        if ($tokenHash) {
+            $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
+            $stmt->execute([$playerId, $lobbyId, $tokenHash]);
+            if (!$stmt->fetch()) {
+                return ['success' => false, 'error' => 'Ungültiges Token'];
+            }
+        }
+        
+        // Check if player is host and transfer host role
+        $stmt = $pdo->prepare('SELECT is_host FROM players WHERE id = ? AND lobby_id = ?');
+        $stmt->execute([$playerId, $lobbyId]);
+        $player = $stmt->fetch();
         
         $pdo->prepare('DELETE FROM players WHERE id = ? AND lobby_id = ?')
             ->execute([$playerId, $lobbyId]);
@@ -165,13 +188,30 @@ class LobbyController {
         if ($remaining == 0) {
             $pdo->prepare('DELETE FROM lobbies WHERE id = ?')
                 ->execute([$lobbyId]);
+        } elseif ($player && $player['is_host']) {
+            // Transfer host to oldest human player
+            $stmt = $pdo->prepare('SELECT id FROM players WHERE lobby_id = ? AND is_bot = 0 ORDER BY joined_at LIMIT 1');
+            $stmt->execute([$lobbyId]);
+            $newHost = $stmt->fetch();
+            if ($newHost) {
+                $pdo->prepare('UPDATE players SET is_host = 1 WHERE id = ?')->execute([$newHost['id']]);
+                $pdo->prepare('UPDATE lobbies SET host_id = ? WHERE id = ?')->execute([$newHost['id'], $lobbyId]);
+            }
         }
         
         return ['success' => true];
     }
 
-    public function addBot(string $lobbyId, string $difficulty = 'medium'): array {
+    public function addBot(string $lobbyId, string $playerId, string $tokenHash = '', string $difficulty = 'medium'): array {
         $pdo = $this->db->getConnection();
+        
+        // Verify host
+        $stmt = $pdo->prepare('SELECT is_host FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
+        $stmt->execute([$playerId, $lobbyId, $tokenHash]);
+        $player = $stmt->fetch();
+        if (!$player || !$player['is_host']) {
+            return ['success' => false, 'error' => 'Nur der Host kann Bots hinzufügen'];
+        }
         
         $stmt = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?');
         $stmt->execute([$lobbyId]);
@@ -203,8 +243,16 @@ class LobbyController {
         return ['success' => true, 'botId' => $botId, 'name' => $botName];
     }
 
-    public function removeBot(string $lobbyId, string $botId): array {
+    public function removeBot(string $lobbyId, string $playerId, string $tokenHash, string $botId): array {
         $pdo = $this->db->getConnection();
+        
+        // Verify host
+        $stmt = $pdo->prepare('SELECT is_host FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
+        $stmt->execute([$playerId, $lobbyId, $tokenHash]);
+        $player = $stmt->fetch();
+        if (!$player || !$player['is_host']) {
+            return ['success' => false, 'error' => 'Nur der Host kann Bots entfernen'];
+        }
         
         $pdo->prepare('DELETE FROM players WHERE id = ? AND lobby_id = ? AND is_bot = 1')
             ->execute([$botId, $lobbyId]);
@@ -212,8 +260,16 @@ class LobbyController {
         return ['success' => true];
     }
 
-    public function startGame(string $lobbyId, string $playerId): array {
+    public function startGame(string $lobbyId, string $playerId, string $tokenHash = ''): array {
         $pdo = $this->db->getConnection();
+        
+        // Verify token and host
+        $stmt = $pdo->prepare('SELECT is_host FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
+        $stmt->execute([$playerId, $lobbyId, $tokenHash]);
+        $player = $stmt->fetch();
+        if (!$player || !$player['is_host']) {
+            return ['success' => false, 'error' => 'Nur der Host kann das Spiel starten'];
+        }
         
         $stmt = $pdo->prepare('SELECT * FROM lobbies WHERE id = ?');
         $stmt->execute([$lobbyId]);
@@ -223,8 +279,12 @@ class LobbyController {
             return ['success' => false, 'error' => 'Lobby nicht gefunden'];
         }
         
-        if ($lobby['host_id'] !== $playerId) {
-            return ['success' => false, 'error' => 'Nur der Host kann das Spiel starten'];
+        // Check all human players are ready
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM players WHERE lobby_id = ? AND is_bot = 0 AND ready = 0');
+        $stmt->execute([$lobbyId]);
+        $notReady = $stmt->fetchColumn();
+        if ($notReady > 0) {
+            return ['success' => false, 'error' => 'Nicht alle Spieler sind bereit'];
         }
         
         $stmt = $pdo->prepare('

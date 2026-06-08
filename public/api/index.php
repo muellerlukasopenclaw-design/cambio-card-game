@@ -113,7 +113,8 @@ try {
             $response = $lobbyController->setReady(
                 $input['lobbyId'] ?? '',
                 $input['playerId'] ?? '',
-                $input['ready'] ?? false
+                $input['ready'] ?? false,
+                hash('sha256', $input['token'] ?? '')
             );
             break;
             
@@ -125,7 +126,8 @@ try {
             }
             $response = $lobbyController->leave(
                 $input['lobbyId'] ?? '',
-                $input['playerId'] ?? ''
+                $input['playerId'] ?? '',
+                hash('sha256', $input['token'] ?? '')
             );
             break;
             
@@ -137,6 +139,8 @@ try {
             }
             $response = $lobbyController->addBot(
                 $input['lobbyId'] ?? '',
+                $input['playerId'] ?? '',
+                hash('sha256', $input['token'] ?? ''),
                 $input['difficulty'] ?? 'medium'
             );
             break;
@@ -149,6 +153,8 @@ try {
             }
             $response = $lobbyController->removeBot(
                 $input['lobbyId'] ?? '',
+                $input['playerId'] ?? '',
+                hash('sha256', $input['token'] ?? ''),
                 $input['botId'] ?? ''
             );
             break;
@@ -161,7 +167,8 @@ try {
             }
             $startResult = $lobbyController->startGame(
                 $input['lobbyId'] ?? '',
-                $input['playerId'] ?? ''
+                $input['playerId'] ?? '',
+                hash('sha256', $input['token'] ?? '')
             );
             
             if ($startResult['success']) {

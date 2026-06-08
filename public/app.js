@@ -388,7 +388,8 @@ async function setReady() {
     const res = await api('/lobby/ready', 'POST', {
         lobbyId: state.lobbyId,
         playerId: state.playerId,
-        ready: true
+        ready: true,
+        token: state.sessionToken
     });
     if (res.success) {
         toast('Bereit!');
@@ -399,6 +400,8 @@ async function addBot() {
     if (!state.isHost) return;
     const res = await api('/lobby/add-bot', 'POST', {
         lobbyId: state.lobbyId,
+        playerId: state.playerId,
+        token: state.sessionToken,
         difficulty: state.settings.botDifficulty || 'medium'
     });
     if (res.success) {
@@ -413,7 +416,8 @@ async function startGame() {
 
     const res = await api('/lobby/start', 'POST', {
         lobbyId: state.lobbyId,
-        playerId: state.playerId
+        playerId: state.playerId,
+        token: state.sessionToken
     });
 
     if (res.success) {
@@ -433,7 +437,8 @@ async function leaveLobby() {
     if (state.lobbyId && state.playerId) {
         await api('/lobby/leave', 'POST', {
             lobbyId: state.lobbyId,
-            playerId: state.playerId
+            playerId: state.playerId,
+            token: state.sessionToken
         });
     }
     clearInterval(state.pollInterval);
