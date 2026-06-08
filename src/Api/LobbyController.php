@@ -114,6 +114,19 @@ class LobbyController {
             return ['success' => false, 'error' => 'Lobby nicht gefunden'];
         }
         
+        // Current player info (if token provided)
+        $currentPlayer = null;
+        if ($tokenHash) {
+            $stmt = $pdo->prepare('SELECT id, is_host FROM players WHERE lobby_id = ? AND token_hash = ?');
+            $stmt->execute([$lobbyId, $tokenHash]);
+            $currentPlayer = $stmt->fetch();
+        }
+        
+        // If no token and lobby is not in playing state, require token
+        if (!$tokenHash && $lobby['status'] !== 'playing') {
+            return ['success' => false, 'error' => 'Token erforderlich'];
+        }
+        
         $stmt = $pdo->prepare('
             SELECT id, name, is_bot, bot_difficulty, is_host, ready
             FROM players WHERE lobby_id = ?
@@ -137,14 +150,6 @@ class LobbyController {
                 $hostName = $p['name'];
                 break;
             }
-        }
-        
-        // Current player info (if token provided)
-        $currentPlayer = null;
-        if ($tokenHash) {
-            $stmt = $pdo->prepare('SELECT id, is_host FROM players WHERE lobby_id = ? AND token_hash = ?');
-            $stmt->execute([$lobbyId, $tokenHash]);
-            $currentPlayer = $stmt->fetch();
         }
         
         return [

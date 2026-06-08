@@ -11,3 +11,10 @@ logs
 Thumbs.db
 .phpunit.result.cache
 coverage
+README.md
+test-server.js
+docs
+tests
+phpunit.xml
+docker-compose.yml
+portainer-stack.json

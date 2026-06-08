@@ -586,9 +586,8 @@ function renderGame() {
     const gs = state.gameState;
     if (!gs) return;
 
-    $('#round-info').textContent = `Runde ${gs.round} — ${escapeHtml(ownPlayer?.name || '')}`;
-
     const ownPlayer = gs.players.find(p => p.id === state.playerId);
+    $('#round-info').textContent = `Runde ${gs.round} — ${escapeHtml(ownPlayer?.name || '')}`;
     const isMyTurn = gs.currentPlayerId === state.playerId;
     const isPlaying = gs.phase === 'playing' || gs.phase === 'cabo_called';
     const isInitialPeek = gs.phase === 'initial_peek';
@@ -612,7 +611,7 @@ function renderGame() {
     // Other players
     const others = gs.players.filter(p => p.id !== state.playerId);
     $('#other-players').innerHTML = others.map(p => `
-        <div class="player-area ${p.id === gs.currentPlayerId ? 'active' : ''} ${p.calledCabo ? 'cabo' : ''}" data-player-id="${p.id}">
+        <div class="player-area ${escapeHtml(p.id) === escapeHtml(gs.currentPlayerId) ? 'active' : ''} ${p.calledCabo ? 'cabo' : ''}" data-player-id="${escapeHtml(p.id)}">
             <span class="name">${escapeHtml(p.name)}${p.calledCabo ? ' 🚨' : ''}</span>
             <div class="cards">${Array.from({length: p.cardCount}, (_, i) => backCard(i, isMyTurn && ['spy','swap'].includes(gs.pendingAction))).join('')}</div>
         </div>
@@ -668,11 +667,12 @@ function showPendingAction(action, drawnCard) {
     if (action === 'draw_deck' || action === 'draw_discard') {
         title.textContent = 'Was machst du mit der Karte?';
         const isDiscardDraw = action === 'draw_discard';
+        const discardBtn = !isDiscardDraw ? '<button class="btn secondary" data-action="discard-modal">Ablegen</button>' : '';
         body.innerHTML = `
             <div class="drawn-card">${cardHtml(drawnCard)}</div>
             <div class="modal-actions">
                 <button class="btn primary" data-action="swap-modal">Mit Hand tauschen</button>
-                ${!isDiscardDraw ? '<button class="btn secondary" data-action="discard-modal">Ablegen</button>' : ''}
+                ${discardBtn}
             </div>
         `;
     } else if (action === 'peek') {
@@ -701,20 +701,22 @@ function showRoundEnd(gs) {
     if (gs.gameOver) {
         const winner = gs.winner;
         title.textContent = '🏆 Spiel beendet!';
+        const scoresHtml = gs.players.map(p => `
+            <div>${escapeHtml(p.name)}: ${p.totalScore} Punkte</div>
+        `).join('');
         body.innerHTML = `
             <p>${escapeHtml(winner?.name || 'Unbekannt')} gewinnt!</p>
-            <div class="final-scores">${gs.players.map(p => `
-                <div>${escapeHtml(p.name)}: ${p.totalScore} Punkte</div>
-            `).join('')}</div>
+            <div class="final-scores">${scoresHtml}</div>
             <button class="btn primary" data-action="back">Zum Menü</button>
         `;
     } else {
         title.textContent = 'Runde beendet';
         const roundScores = gs.roundScores[gs.round] || {};
+        const roundScoresHtml = gs.players.map(p => `
+            <div>${escapeHtml(p.name)}: +${roundScores[p.id] || 0} (Gesamt: ${p.totalScore})</div>
+        `).join('');
         body.innerHTML = `
-            <div class="round-scores">${gs.players.map(p => `
-                <div>${escapeHtml(p.name)}: +${roundScores[p.id] || 0} (Gesamt: ${p.totalScore})</div>
-            `).join('')}</div>
+            <div class="round-scores">${roundScoresHtml}</div>
             <button class="btn primary" data-action="next-round">Nächste Runde</button>
         `;
     }
@@ -734,7 +736,8 @@ async function actionCallCabo() {
 }
 
 async function sendAction(action) {
-    if (!lockButton(action.action || 'action')) return;
+    const actionKey = action.action || 'action';
+    if (!lockButton(actionKey)) return;
     const body = {
         gameId: state.gameId,
         playerId: state.playerId,
@@ -743,17 +746,22 @@ async function sendAction(action) {
     if (state.gameToken) {
         body.token = state.gameToken;
     }
-    const res = await api('/game/action', 'POST', body);
+    try {
+        const res = await api('/game/action', 'POST', body);
 
-    if (res.success) {
-        state.gameState = res.state;
-        renderGame();
-    } else {
-        toast(res.error || 'Aktion nicht möglich', 'error');
+        if (res.success) {
+            state.gameState = res.state;
+            renderGame();
+        } else {
+            toast(res.error || 'Aktion nicht möglich', 'error');
+        }
+    } finally {
+        state.buttonLocks.delete(actionKey);
     }
 }
 
 async function performInitialPeek(cardIndex) {
+    if (!lockButton('peek')) return;
     const body = {
         gameId: state.gameId,
         playerId: state.playerId,
@@ -762,23 +770,28 @@ async function performInitialPeek(cardIndex) {
     if (state.gameToken) {
         body.token = state.gameToken;
     }
-    const res = await api('/game/peek', 'POST', body);
+    try {
+        const res = await api('/game/peek', 'POST', body);
 
-    if (res.success) {
-        state.gameState = res.state;
-        renderGame();
-        if (state.gameState.phase === 'initial_peek') {
-            const current = state.gameState.players.find(p => p.id === state.gameState.currentPlayerId);
-            if (current && current.isBot) {
-                setTimeout(() => pollGame(), 500);
+        if (res.success) {
+            state.gameState = res.state;
+            renderGame();
+            if (state.gameState.phase === 'initial_peek') {
+                const current = state.gameState.players.find(p => p.id === state.gameState.currentPlayerId);
+                if (current && current.isBot) {
+                    setTimeout(() => pollGame(), 500);
+                }
             }
+        } else {
+            toast(res.error || 'Peek nicht möglich', 'error');
         }
-    } else {
-        toast(res.error || 'Peek nicht möglich', 'error');
+    } finally {
+        state.buttonLocks.delete('peek');
     }
 }
 
 async function startNewRound() {
+    if (!lockButton('new-round')) return;
     const body = {
         gameId: state.gameId,
         playerId: state.playerId
@@ -786,13 +799,17 @@ async function startNewRound() {
     if (state.gameToken) {
         body.token = state.gameToken;
     }
-    const res = await api('/game/new-round', 'POST', body);
+    try {
+        const res = await api('/game/new-round', 'POST', body);
 
-    if (res.success) {
-        state.gameState = res.state;
-        renderGame();
-    } else {
-        toast(res.error || 'Fehler', 'error');
+        if (res.success) {
+            state.gameState = res.state;
+            renderGame();
+        } else {
+            toast(res.error || 'Fehler', 'error');
+        }
+    } finally {
+        state.buttonLocks.delete('new-round');
     }
 }
 

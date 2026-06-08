@@ -1,9 +1,10 @@
-const CACHE_NAME = 'cambio-v0.1.20';
+const CACHE_NAME = 'cambio-v0.1.21';
+const VERSION = '0.1.21';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/styles.css',
-    '/app.js',
+    `/styles.css?v=${VERSION}`,
+    `/app.js?v=${VERSION}`,
     '/manifest.webmanifest',
     '/assets/icon-192.svg',
     '/assets/icon-512.svg'

@@ -24,6 +24,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction
+
+      - name: Check PHP syntax
+        run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Check JS syntax
+        run: node --check public/app.js
+
+      - name: Verify static assets exist
+        run: |
+          test -f public/index.html
+          test -f public/manifest.webmanifest
+          test -f public/service-worker.js
+          test -f public/assets/icon-192.svg
+          test -f public/assets/icon-512.svg
+          test -f VERSION
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -55,4 +87,5 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          no-cache: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

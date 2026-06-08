@@ -433,15 +433,34 @@ class GameState {
     public function endRound(): void {
         $this->phase = self::PHASE_ROUND_END;
         
-        // Calculate scores
-        $roundScores = [];
+        // Calculate raw scores (before any variant modifications)
+        $rawScores = [];
         $minValue = PHP_INT_MAX;
         
         foreach ($this->players as $player) {
             $value = $player->getHandValue();
-            $roundScores[$player->id] = $value;
+            $rawScores[$player->id] = $value;
             if ($value < $minValue) {
                 $minValue = $value;
+            }
+        }
+        
+        // Apply Cabo penalty based on RAW scores (before classic scoring)
+        $roundScores = $rawScores;
+        if ($this->config['caboPenalty'] > 0 && $this->caboCallerId) {
+            $caller = $this->getPlayerById($this->caboCallerId);
+            if ($caller) {
+                $callerValue = $rawScores[$caller->id];
+                $isLowest = true;
+                foreach ($rawScores as $pid => $value) {
+                    if ($pid !== $caller->id && $value < $callerValue) {
+                        $isLowest = false;
+                        break;
+                    }
+                }
+                if (!$isLowest) {
+                    $roundScores[$caller->id] += $this->config['caboPenalty'];
+                }
             }
         }
         
@@ -451,24 +470,6 @@ class GameState {
                 $value = $roundScores[$player->id];
                 if ($value === $minValue) {
                     $roundScores[$player->id] = 0;
-                }
-            }
-        }
-        
-        // Apply Cabo penalty
-        if ($this->config['caboPenalty'] > 0 && $this->caboCallerId) {
-            $caller = $this->getPlayerById($this->caboCallerId);
-            if ($caller) {
-                $callerValue = $roundScores[$caller->id];
-                $isLowest = true;
-                foreach ($roundScores as $pid => $value) {
-                    if ($pid !== $caller->id && $value < $callerValue) {
-                        $isLowest = false;
-                        break;
-                    }
-                }
-                if (!$isLowest) {
-                    $roundScores[$caller->id] += $this->config['caboPenalty'];
                 }
             }
         }

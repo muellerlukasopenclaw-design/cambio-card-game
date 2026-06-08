@@ -189,6 +189,20 @@ try {
                     $config,
                     $startResult['gameId'] ?? null
                 );
+                
+                // Atomar: Lobby auf playing setzen + game_id speichern
+                if ($gameResult['success']) {
+                    $db->getPdo()->exec('BEGIN IMMEDIATE');
+                    try {
+                        $stmt = $db->getPdo()->prepare('UPDATE lobbies SET status = ?, game_id = ?, updated_at = ? WHERE id = ?');
+                        $stmt->execute(['playing', $gameResult['gameId'], time(), $input['lobbyId'] ?? '']);
+                        $db->getPdo()->exec('COMMIT');
+                    } catch (\Exception $e) {
+                        $db->getPdo()->exec('ROLLBACK');
+                        error_log('Lobby update failed: ' . $e->getMessage());
+                    }
+                }
+                
                 $response = $gameResult;
             } else {
                 $response = $startResult;

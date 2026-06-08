@@ -59,11 +59,18 @@ class Database {
                 bot_difficulty TEXT,
                 is_host INTEGER NOT NULL DEFAULT 0,
                 ready INTEGER NOT NULL DEFAULT 0,
-                session_token TEXT,
                 token_hash TEXT,
                 joined_at INTEGER NOT NULL
             )
         ');
+        
+        // Migration: Remove session_token column from existing databases
+        try {
+            $db->exec('ALTER TABLE players DROP COLUMN session_token');
+        } catch (\PDOException $e) {
+            // Column might not exist or SQLite doesn't support DROP COLUMN (older versions)
+            // In that case, we just leave it empty and don't use it
+        }
         
         $db->exec('
             CREATE TABLE IF NOT EXISTS games (
