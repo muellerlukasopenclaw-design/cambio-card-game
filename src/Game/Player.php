@@ -67,6 +67,9 @@ class Player {
         unset($this->knownCards[$index]);
     }
 
+    /**
+     * @deprecated Bots must use estimateHandValue() to avoid cheating
+     */
     public function getHandValue(): int {
         $value = 0;
         foreach ($this->hand as $card) {

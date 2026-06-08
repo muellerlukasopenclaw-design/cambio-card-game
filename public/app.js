@@ -29,7 +29,8 @@ const state = {
     },
     pollInterval: null,
     eventSource: null,
-    pendingSwapOwnIndex: null
+    pendingSwapOwnIndex: null,
+    buttonLocks: new Set()
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────
@@ -44,6 +45,13 @@ function escapeHtml(value) {
         '"': '&quot;',
         "'": '&#039;'
     }[c]));
+}
+
+function lockButton(action) {
+    if (state.buttonLocks.has(action)) return false;
+    state.buttonLocks.add(action);
+    setTimeout(() => state.buttonLocks.delete(action), 2000);
+    return true;
 }
 
 function showScreen(id) {
@@ -194,6 +202,12 @@ async function startSingleplayer() {
         state.gameId = res.gameId;
         state.gameState = res.state;
         state.gameToken = res.sessionToken || null;
+        // Save session to localStorage
+        localStorage.setItem('cambio_session', JSON.stringify({
+            gameId: state.gameId,
+            playerId: state.playerId,
+            sessionToken: state.sessionToken
+        }));
         showScreen('game');
         renderGame();
         startPolling();
@@ -350,6 +364,7 @@ async function pollLobby() {
             <span>${escapeHtml(p.name)}${p.is_bot ? ' (Bot)' : ''}</span>
             <span class="${p.is_host ? 'host' : ''}">${p.is_host ? 'Host' : ''}</span>
             ${!p.is_bot && p.id === state.playerId ? '<button class="btn small" data-action="ready">Ready</button>' : ''}
+            ${lobby.isHost && p.is_bot ? `<button class="btn small danger" data-action="remove-bot" data-bot-id="${p.id}">×</button>` : ''}
         </div>
     `).join('');
 
@@ -357,14 +372,25 @@ async function pollLobby() {
     const allReady = lobby.players.every(p => p.is_bot || p.ready);
     $('#btn-start-game').disabled = !lobby.isHost || lobby.players.length < 2 || !allReady;
     
-    // Add bot button for host
+    // Add bot button for host with difficulty selector
     if (lobby.isHost && lobby.players.length < lobby.maxPlayers) {
-        const botBtn = document.createElement('button');
-        botBtn.className = 'btn small';
-        botBtn.textContent = '+ Bot';
-        botBtn.dataset.action = 'add-bot';
-        list.appendChild(botBtn);
+        const botContainer = document.createElement('div');
+        botContainer.className = 'bot-add-container';
+        botContainer.innerHTML = `
+            <select id="bot-difficulty" class="small">
+                <option value="easy">Einfach</option>
+                <option value="medium" selected>Mittel</option>
+                <option value="hard">Schwer</option>
+            </select>
+            <button class="btn small" data-action="add-bot">+ Bot</button>
+        `;
+        list.appendChild(botContainer);
     }
+    
+    // Remove bot handler
+    list.querySelectorAll('[data-action="remove-bot"]').forEach(btn => {
+        btn.addEventListener('click', () => removeBot(btn.dataset.botId));
+    });
     
     // Auto-transition to game when lobby status changes to playing
     if (lobby.status === 'playing' && !state.gameId) {
@@ -398,14 +424,30 @@ async function setReady() {
 
 async function addBot() {
     if (!state.isHost) return;
+    const difficulty = document.getElementById('bot-difficulty')?.value || 'medium';
     const res = await api('/lobby/add-bot', 'POST', {
         lobbyId: state.lobbyId,
         playerId: state.playerId,
         token: state.sessionToken,
-        difficulty: state.settings.botDifficulty || 'medium'
+        difficulty: difficulty
     });
     if (res.success) {
         toast('Bot hinzugefügt');
+    } else {
+        toast(res.error || 'Fehler', 'error');
+    }
+}
+
+async function removeBot(botId) {
+    if (!state.isHost || !botId) return;
+    const res = await api('/lobby/remove-bot', 'POST', {
+        lobbyId: state.lobbyId,
+        playerId: state.playerId,
+        token: state.sessionToken,
+        botId: botId
+    });
+    if (res.success) {
+        toast('Bot entfernt');
     } else {
         toast(res.error || 'Fehler', 'error');
     }
@@ -534,11 +576,12 @@ function showPendingAction(action, drawnCard) {
 
     if (action === 'draw_deck' || action === 'draw_discard') {
         title.textContent = 'Was machst du mit der Karte?';
+        const isDiscardDraw = action === 'draw_discard';
         body.innerHTML = `
             <div class="drawn-card">${cardHtml(drawnCard)}</div>
             <div class="modal-actions">
                 <button class="btn primary" data-action="swap-modal">Mit Hand tauschen</button>
-                <button class="btn secondary" data-action="discard-modal">Ablegen</button>
+                ${!isDiscardDraw ? '<button class="btn secondary" data-action="discard-modal">Ablegen</button>' : ''}
             </div>
         `;
     } else if (action === 'peek') {
@@ -588,18 +631,22 @@ function showRoundEnd(gs) {
 
 // ─── Game Actions ───────────────────────────────────────────────────
 async function actionDrawDeck() {
+    if (!lockButton('draw_deck')) return;
     await sendAction({ action: 'draw_deck' });
 }
 
 async function actionDrawDiscard() {
+    if (!lockButton('draw_discard')) return;
     await sendAction({ action: 'draw_discard' });
 }
 
 async function actionCallCabo() {
+    if (!lockButton('call_cabo')) return;
     await sendAction({ action: 'call_cabo' });
 }
 
 async function sendAction(action) {
+    if (!lockButton(action.action || 'action')) return;
     const body = {
         gameId: state.gameId,
         playerId: state.playerId,
@@ -932,8 +979,37 @@ async function loadVersion() {
 function init() {
     loadSettings();
     initEventListeners();
-    showScreen('start');
     loadVersion();
+
+    // Try to restore session from localStorage
+    const saved = localStorage.getItem('cambio_session');
+    if (saved) {
+        try {
+            const session = JSON.parse(saved);
+            if (session.gameId && session.playerId && session.sessionToken) {
+                state.gameId = session.gameId;
+                state.playerId = session.playerId;
+                state.sessionToken = session.sessionToken;
+                state.gameToken = session.sessionToken;
+                showScreen('game');
+                renderGame();
+                startPolling();
+                return;
+            } else if (session.lobbyId && session.playerId && session.sessionToken) {
+                state.lobbyId = session.lobbyId;
+                state.playerId = session.playerId;
+                state.sessionToken = session.sessionToken;
+                state.isHost = session.isHost || false;
+                showScreen('lobby');
+                renderLobby();
+                startPolling();
+                return;
+            }
+        } catch (e) {
+            console.error('Failed to restore session:', e);
+        }
+    }
+    showScreen('start');
 
     // Register service worker
     if ('serviceWorker' in navigator) {

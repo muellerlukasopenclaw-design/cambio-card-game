@@ -43,6 +43,7 @@ class GameState {
     public array $playerKnowledge = [];
     
     public ?Card $drawnCard = null;
+    public ?string $drawnCardOwnerId = null;
     public ?string $pendingAction = null;
     public ?string $lastAction = null;
     public ?array $lastActionData = null;
@@ -201,7 +202,7 @@ class GameState {
         if (!$this->drawnCard) {
             return false;
         }
-
+        $this->drawnCardOwnerId = $playerId;
         $this->pendingAction = self::ACTION_DRAW_DECK;
         return true;
     }
@@ -217,6 +218,7 @@ class GameState {
         }
 
         $this->drawnCard = $discardCard;
+        $this->drawnCardOwnerId = $playerId;
         $this->pendingAction = self::ACTION_DRAW_DISCARD;
         return true;
     }
@@ -239,6 +241,7 @@ class GameState {
         $player->learnCard($handIndex, $this->drawnCard);
         
         $this->drawnCard = null;
+        $this->drawnCardOwnerId = null;
         $this->pendingAction = null;
         $this->lastAction = self::ACTION_SWAP_WITH_HAND;
         
@@ -257,12 +260,38 @@ class GameState {
             return false;
         }
 
+        $drawnValue = $this->drawnCard->getValue();
         $this->deck->discard($this->drawnCard);
+
+        // Check for multiple discard (matching value in hand)
+        $matchingIndices = [];
+        foreach ($player->hand as $idx => $card) {
+            if ($card->getValue() === $drawnValue) {
+                $matchingIndices[] = $idx;
+            }
+        }
+
+        if (!empty($matchingIndices)) {
+            // Discard all matching cards
+            foreach ($matchingIndices as $idx) {
+                $this->deck->discard($player->hand[$idx]);
+                $player->hand[$idx] = null;
+                $player->forgetCard($idx);
+            }
+            $this->lastAction = self::ACTION_DISCARD_MULTIPLE;
+            $this->lastActionData = ['count' => count($matchingIndices) + 1];
+            $this->drawnCard = null;
+            $this->drawnCardOwnerId = null;
+            $this->pendingAction = null;
+            $this->nextPlayer();
+            return true;
+        }
 
         // Check if action card and can be played
         $actionType = $this->drawnCard->getActionType();
 
         $this->drawnCard = null;
+        $this->drawnCardOwnerId = null;
 
         if ($actionType && $this->pendingAction === self::ACTION_DRAW_DECK) {
             $this->pendingAction = $actionType;
@@ -526,6 +555,7 @@ class GameState {
             'discardCount' => $this->deck->discardCount(),
             'topDiscard' => $topDiscard?->toArray(),
             'drawnCard' => $showDrawnCard ? $this->drawnCard?->toArray() : null,
+            'drawnCardOwnerId' => $this->drawnCardOwnerId,
             'pendingAction' => $this->pendingAction,
             'lastAction' => $this->lastAction,
             'config' => $this->config,
@@ -546,6 +576,7 @@ class GameState {
             'players' => array_map(fn($p) => $p->toPersistedArray(), $this->players),
             'deck' => $this->deck->toArray(),
             'drawnCard' => $this->drawnCard?->toArray(),
+            'drawnCardOwnerId' => $this->drawnCardOwnerId,
             'pendingAction' => $this->pendingAction,
             'lastAction' => $this->lastAction,
             'lastActionData' => $this->lastActionData,
@@ -570,7 +601,7 @@ class GameState {
         $game->pendingAction = $data['pendingAction'] ?? null;
         $game->roundScores = $data['roundScores'] ?? [];
         $game->createdAt = $data['createdAt'] ?? time();
-        $game->updatedAt = $data['updatedAt'] ?? time();
+        $game->updatedAt = time(); // Always update on load
 
         if (!empty($data['deck'])) {
             $game->deck = Deck::fromArray($data['deck']);
@@ -579,6 +610,7 @@ class GameState {
         if (!empty($data['drawnCard'])) {
             $game->drawnCard = Card::fromArray($data['drawnCard']);
         }
+        $game->drawnCardOwnerId = $data['drawnCardOwnerId'] ?? null;
 
         foreach ($data['players'] ?? [] as $pData) {
             $game->addPlayer(Player::fromPersistedArray($pData));

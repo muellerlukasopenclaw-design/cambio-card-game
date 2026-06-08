@@ -62,16 +62,20 @@ class GameController {
         // Store players in DB for token validation (only for local/hotseat games)
         // For lobby games, players are already in the DB
         $isLocalGame = str_starts_with($lobbyId, 'local_') || str_starts_with($lobbyId, 'hotseat_');
-        $sessionToken = null;
+        $sessionTokens = [];
+        $hostToken = null;
         
         if ($isLocalGame) {
             foreach ($playersData as $p) {
                 if (!($p['is_bot'] ?? false)) {
                     $token = bin2hex(random_bytes(16));
                     $tokenHash = hash('sha256', $token);
-                    $sessionToken = $token;
+                    $sessionTokens[$p['id']] = $token;
+                    if ($p['is_host'] ?? false) {
+                        $hostToken = $token;
+                    }
                     $pdo->prepare('
-                        INSERT OR IGNORE INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
+                        INSERT OR REPLACE INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ')->execute([
                         $p['id'],
@@ -91,7 +95,8 @@ class GameController {
         return [
             'success' => true,
             'gameId' => $game->id,
-            'sessionToken' => $sessionToken,
+            'sessionToken' => $hostToken,
+            'sessionTokens' => $sessionTokens,
             'state' => $game->toArray()
         ];
     }
@@ -129,7 +134,7 @@ class GameController {
 
     public function performAction(string $gameId, string $playerId, array $action, string $tokenHash = ''): array {
         $pdo = $this->db->getConnection();
-        $pdo->beginTransaction();
+        $pdo->exec('BEGIN IMMEDIATE');
         
         try {
             $game = $this->getGame($gameId);
@@ -280,6 +285,9 @@ class GameController {
             }
         }
         
+        // Save after bot peeks
+        $this->saveGame($game);
+        
         return [
             'success' => true,
             'state' => $game->toArray($playerId)
@@ -331,6 +339,9 @@ class GameController {
                 break;
             }
         }
+        
+        // Save after bot peeks
+        $this->saveGame($game);
         
         return [
             'success' => true,

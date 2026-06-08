@@ -20,9 +20,9 @@ class LobbyController {
         $hostName = $data['hostName'] ?? 'Host';
         $maxPlayers = min(5, max(2, (int)($data['maxPlayers'] ?? 4)));
         
-        $lobbyId = uniqid('lobby_', true);
+        $lobbyId = 'lobby_' . bin2hex(random_bytes(16));
         $code = $this->generateCode();
-        $hostId = uniqid('p_', true);
+        $hostId = 'p_' . bin2hex(random_bytes(16));
         $sessionToken = bin2hex(random_bytes(16));
         $tokenHash = hash('sha256', $sessionToken);
         $now = time();
@@ -36,9 +36,9 @@ class LobbyController {
         ')->execute([$lobbyId, $code, $name, $hostId, $maxPlayers, 'waiting', null, $now, $now, $expires]);
         
         $pdo->prepare('
-            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
-            VALUES (?, ?, ?, 0, 1, 0, ?, ?, ?)
-        ')->execute([$hostId, $lobbyId, $hostName, $sessionToken, $tokenHash, $now]);
+            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, token_hash, joined_at)
+            VALUES (?, ?, ?, 0, 1, 0, ?, ?)
+        ')->execute([$hostId, $lobbyId, $hostName, $tokenHash, $now]);
         
         return [
             'success' => true,
@@ -80,15 +80,15 @@ class LobbyController {
             return ['success' => false, 'error' => 'Lobby ist voll'];
         }
         
-        $playerId = uniqid('p_', true);
+        $playerId = 'p_' . bin2hex(random_bytes(16));
         $sessionToken = bin2hex(random_bytes(16));
         $tokenHash = hash('sha256', $sessionToken);
         $now = time();
         
         $pdo->prepare('
-            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, session_token, token_hash, joined_at)
-            VALUES (?, ?, ?, 0, 0, 0, ?, ?, ?)
-        ')->execute([$playerId, $lobby['id'], $playerName, $sessionToken, $tokenHash, $now]);
+            INSERT INTO players (id, lobby_id, name, is_bot, is_host, ready, token_hash, joined_at)
+            VALUES (?, ?, ?, 0, 0, 0, ?, ?)
+        ')->execute([$playerId, $lobby['id'], $playerName, $tokenHash, $now]);
         
         $pdo->prepare('UPDATE lobbies SET updated_at = ? WHERE id = ?')
             ->execute([$now, $lobby['id']]);
@@ -140,16 +140,17 @@ class LobbyController {
         ];
     }
 
-    public function setReady(string $lobbyId, string $playerId, bool $ready, string $tokenHash = ''): array {
+    public function setReady(string $lobbyId, string $playerId, bool $ready, string $tokenHash): array {
         $pdo = $this->db->getConnection();
         
-        // Verify token
-        if ($tokenHash) {
-            $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
-            $stmt->execute([$playerId, $lobbyId, $tokenHash]);
-            if (!$stmt->fetch()) {
-                return ['success' => false, 'error' => 'Ungültiges Token'];
-            }
+        // Verify token (mandatory)
+        if (!$tokenHash) {
+            return ['success' => false, 'error' => 'Token erforderlich'];
+        }
+        $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
+        $stmt->execute([$playerId, $lobbyId, $tokenHash]);
+        if (!$stmt->fetch()) {
+            return ['success' => false, 'error' => 'Ungültiges Token'];
         }
         
         $pdo->prepare('UPDATE players SET ready = ? WHERE id = ? AND lobby_id = ?')
@@ -161,16 +162,17 @@ class LobbyController {
         return ['success' => true];
     }
 
-    public function leave(string $lobbyId, string $playerId, string $tokenHash = ''): array {
+    public function leave(string $lobbyId, string $playerId, string $tokenHash): array {
         $pdo = $this->db->getConnection();
         
-        // Verify token
-        if ($tokenHash) {
-            $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
-            $stmt->execute([$playerId, $lobbyId, $tokenHash]);
-            if (!$stmt->fetch()) {
-                return ['success' => false, 'error' => 'Ungültiges Token'];
-            }
+        // Verify token (mandatory)
+        if (!$tokenHash) {
+            return ['success' => false, 'error' => 'Token erforderlich'];
+        }
+        $stmt = $pdo->prepare('SELECT 1 FROM players WHERE id = ? AND lobby_id = ? AND token_hash = ?');
+        $stmt->execute([$playerId, $lobbyId, $tokenHash]);
+        if (!$stmt->fetch()) {
+            return ['success' => false, 'error' => 'Ungültiges Token'];
         }
         
         // Check if player is host and transfer host role
@@ -232,7 +234,7 @@ class LobbyController {
         $botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'];
         $botName = $botNames[$playerCount] ?? 'Bot ' . ($playerCount + 1);
         
-        $botId = uniqid('bot_', true);
+        $botId = 'bot_' . bin2hex(random_bytes(16));
         $now = time();
         
         $pdo->prepare('
@@ -298,7 +300,7 @@ class LobbyController {
             return ['success' => false, 'error' => 'Mindestens 2 Spieler benötigt'];
         }
         
-        $gameId = 'game_' . uniqid('', true);
+        $gameId = 'game_' . bin2hex(random_bytes(16));
         $pdo->prepare('UPDATE lobbies SET status = ?, game_id = ?, updated_at = ? WHERE id = ?')
             ->execute(['playing', $gameId, time(), $lobbyId]);
         
