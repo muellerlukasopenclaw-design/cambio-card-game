@@ -150,7 +150,7 @@ async function startSingleplayer() {
         scoringVariant: state.settings.rules
     };
 
-    const res = await api('/lobby/start', 'POST', {
+    const res = await api('/game/create', 'POST', {
         lobbyId: 'local_' + Date.now(),
         playerId: players[0].id,
         config,
@@ -201,7 +201,7 @@ async function startHotseat() {
         scoringVariant: state.settings.rules
     };
 
-    const res = await api('/lobby/start', 'POST', {
+    const res = await api('/game/create', 'POST', {
         lobbyId: 'hotseat_' + Date.now(),
         playerId: players[0].id,
         config,

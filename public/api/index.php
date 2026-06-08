@@ -172,6 +172,19 @@ try {
             }
             break;
             
+        case '/game/create':
+            if ($method !== 'POST') {
+                http_response_code(405);
+                $response = ['success' => false, 'error' => 'Method not allowed'];
+                break;
+            }
+            $response = $gameController->createGame(
+                $input['lobbyId'] ?? 'local_' . uniqid(),
+                $input['players'] ?? [],
+                $input['config'] ?? []
+            );
+            break;
+            
         case '/game/state':
             $gameId = $input['gameId'] ?? $_GET['gameId'] ?? '';
             $playerId = $input['playerId'] ?? $_GET['playerId'] ?? '';
